@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LJC Keynote Manager</title>
+<meta name="description" content="Edit Revit keynote files and check them against spec sections and drawing PDFs.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 fill=%27%234E2751%27/%3E%3Ctext x=%2750%27 y=%2762%27 text-anchor=%27middle%27 font-family=%27Helvetica,Arial,sans-serif%27 font-weight=%27700%27 font-size=%2730%27 fill=%27%23EAEAEA%27%3EKN%3C/text%3E%3C/svg%3E">
+<style>
+/* Layout: brand band header + three-pane workspace (divisions · keynote list · editor), full-height app */
+:root {
+  --font-brand: "Helvetica Neue LT Pro", "HelveticaNeueLTPro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --bg: #F5F5F4; --surface: #FFFFFF; --surface-2: #F5F5F4; --tint: #F6F2F7; --sel: #EFE9F1;
+  --line: #EAEAEA; --line-strong: #C8C8C8;
+  --fg: #212121; --fg-2: #424242; --muted: #6B6A69;
+  --plum: #4E2751; --plum-dark: #3F1F42; --plum-light: #8B62A9;
+  --band: #4E2751; --band-fg: #EAEAEA;
+  --gold: #F7CF7A; --on-gold: #212121; --cream: #FAE8C4; --warn-bg: #FEF7E8; --red: #F04A52;
+  --chip-ink-bg: #212121; --chip-ink-fg: #EAEAEA; --chip-n-bg: #EAEAEA; --chip-n-fg: #424242;
+  --btn-bg: #4E2751; --btn-bg-hover: #3F1F42; --btn-fg: #FFFFFF;
+  --mark: #F7CF7A; --scrim: rgba(33,33,33,0.55); --shadow-md: 0 6px 18px rgba(33,33,33,0.12); --shadow-lg: 0 18px 44px rgba(33,33,33,0.18);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141115; --surface: #1C181D; --surface-2: #241F25; --tint: #211A23; --sel: #35263A;
+  --line: #2F2931; --line-strong: #4A424D;
+  --fg: #EDE9EE; --fg-2: #C2BAC4; --muted: #958D97;
+  --plum: #C7A3DB; --plum-dark: #DCC3EA; --plum-light: #A07CC0;
+  --band: #351A38; --band-fg: #EAEAEA;
+  --gold: #F7CF7A; --on-gold: #212121; --cream: #3C3220; --warn-bg: #2D2618; --red: #F4646B;
+  --chip-ink-bg: #EDE9EE; --chip-ink-fg: #1C181D; --chip-n-bg: #342F36; --chip-n-fg: #C8C1CA;
+  --btn-bg: #8B62A9; --btn-bg-hover: #9C76BA; --btn-fg: #FFFFFF;
+  --mark: #8A6A1F; --scrim: rgba(0,0,0,0.6); --shadow-md: 0 6px 18px rgba(0,0,0,0.4); --shadow-lg: 0 18px 44px rgba(0,0,0,0.5);
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141115; --surface: #1C181D; --surface-2: #241F25; --tint: #211A23; --sel: #35263A;
+  --line: #2F2931; --line-strong: #4A424D;
+  --fg: #EDE9EE; --fg-2: #C2BAC4; --muted: #958D97;
+  --plum: #C7A3DB; --plum-dark: #DCC3EA; --plum-light: #A07CC0;
+  --band: #351A38; --band-fg: #EAEAEA;
+  --gold: #F7CF7A; --on-gold: #212121; --cream: #3C3220; --warn-bg: #2D2618; --red: #F4646B;
+  --chip-ink-bg: #EDE9EE; --chip-ink-fg: #1C181D; --chip-n-bg: #342F36; --chip-n-fg: #C8C1CA;
+  --btn-bg: #8B62A9; --btn-bg-hover: #9C76BA; --btn-fg: #FFFFFF;
+  --mark: #8A6A1F; --scrim: rgba(0,0,0,0.6); --shadow-md: 0 6px 18px rgba(0,0,0,0.4); --shadow-lg: 0 18px 44px rgba(0,0,0,0.5);
+  color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-brand); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band); }
+#root { height: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+mark { background: var(--mark); color: inherit; padding: 0; }
+:focus-visible { outline: 2px solid var(--plum-light); outline-offset: 2px; }
+.gut { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 759px) { .gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+
+.app { height: 100%; display: grid; grid-template-rows: auto auto minmax(0,1fr); }
+.hdr { display: flex; align-items: center; gap: 24px; padding-block: 14px; background: var(--band); color: var(--band-fg); flex-wrap: wrap; }
+.hdr .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+.hdr .name { font-size: 20px; font-weight: 700; line-height: 25px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.hdr .name span { font-size: 13px; font-weight: 400; opacity: .85; }
+.pagetabs { display: flex; gap: 20px; align-self: stretch; margin: -14px 0; }
+.pagetab { border: 0; background: transparent; padding: 0 2px; font-size: 14px; color: var(--band-fg); cursor: pointer; }
+.pagetab:hover { background: rgba(255,255,255,0.08); }
+.pagetab.on { font-weight: 700; box-shadow: inset 0 -3px 0 var(--gold); }
+.vsep { width: 1px; align-self: stretch; background: rgba(234,234,234,0.3); }
+.fileinfo { display: flex; flex-direction: column; gap: 2px; min-width: 200px; flex: 1; }
+.fileinfo .fn { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fileinfo .fm { font-size: 12px; opacity: .9; }
+.hbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.hbtn { display: flex; align-items: center; height: 34px; padding: 0 14px; border: 1px solid rgba(234,234,234,0.6); background: transparent; font-size: 13px; font-weight: 500; color: var(--band-fg); cursor: pointer; white-space: nowrap; }
+.hbtn:hover:not(:disabled) { border-color: #FFFFFF; background: rgba(255,255,255,0.08); }
+.hbtn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn { font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 2px; cursor: pointer; white-space: nowrap; font-size: 11px; padding: 8px 14px; min-height: 34px; transition: background-color 120ms, border-color 120ms, color 120ms; }
+.btn-primary { background: var(--btn-bg); color: var(--btn-fg); }
+.btn-primary:hover:not(:disabled) { background: var(--btn-bg-hover); }
+.btn-outline { background: transparent; color: var(--fg); border-color: var(--line-strong); }
+.btn-outline:hover:not(:disabled) { border-color: var(--fg); background: var(--surface-2); }
+.btn-ghost { background: transparent; color: var(--fg); }
+.btn-ghost:hover:not(:disabled) { background: var(--line); }
+.btn-inverse { background: #FFFFFF; color: #212121; }
+.btn-inverse:hover:not(:disabled) { background: #EAEAEA; }
+.btn:disabled { background: var(--line-strong); color: var(--muted); border-color: transparent; cursor: not-allowed; }
+.mini { border: 1px solid var(--line-strong); background: var(--surface); padding: 5px 10px; font-size: 12px; font-weight: 500; color: var(--fg); cursor: pointer; white-space: nowrap; }
+.mini:hover { border-color: var(--fg); }
+.link { border: 0; background: transparent; padding: 0; font-size: 12px; color: var(--plum); text-decoration: underline; cursor: pointer; }
+
+.banner { display: flex; align-items: center; gap: 16px; padding-block: 10px; border-bottom: 1px solid var(--line-strong); flex-wrap: wrap; }
+.banner > div { flex: 1; min-width: 240px; }
+
+.work { position: relative; display: grid; min-height: 0; }
+.side { overflow: auto; background: var(--tint); border-right: 1px solid var(--line); padding: 20px 0; }
+.label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-2); }
+.side .label { padding: 0 20px 10px; }
+.divbtn { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: baseline; width: 100%; text-align: left; border: 0; padding: 9px 20px; cursor: pointer; background: transparent; color: var(--fg); }
+.divbtn:hover { background: var(--surface-2); }
+.divbtn.on { background: var(--sel); box-shadow: inset 4px 0 0 var(--plum); }
+.divbtn .k { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.divbtn .t { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.divbtn .c { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.main { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--surface); }
+.toolbar { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-bottom: 1px solid var(--line); }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.search { position: relative; flex: 1; min-width: 200px; }
+.search svg { position: absolute; left: 12px; top: 50%; margin-top: -8px; stroke: var(--fg-2); }
+.field { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 0; font-size: 14px; color: var(--fg); background: var(--surface); }
+.search .field { padding-left: 36px; background: var(--tint); }
+.field:focus { outline: none; border-color: var(--plum); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--plum-light); }
+.tabs { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+.tab { border: 0; background: transparent; padding: 6px 0 10px; font-size: 13px; cursor: pointer; color: var(--fg); }
+.tab.on { font-weight: 700; box-shadow: inset 0 -2px 0 var(--plum); }
+.note { padding-bottom: 10px; font-size: 12px; color: var(--muted); }
+.thead { display: grid; gap: 16px; padding-block: 8px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-2); }
+.sorth { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-2); cursor: pointer; text-align: left; }
+.sorth.on, .sorth:hover { color: var(--fg); }
+.sorth span { font-size: 10px; letter-spacing: 0; color: var(--plum); }
+.scroll { flex: 1; overflow: auto; min-height: 0; }
+.kn { display: grid; gap: 16px; align-items: start; border-bottom: 1px solid var(--surface-2); cursor: pointer; }
+.kn:hover { background: var(--surface-2); }
+.kn.on { background: var(--sel); box-shadow: inset 4px 0 0 var(--plum); }
+.caret { flex: none; width: 20px; height: 20px; border: 0; padding: 0; background: transparent; cursor: pointer; display: grid; place-items: center; }
+.caret:hover { background: var(--line); }
+.caret svg { stroke: var(--fg); transition: transform 140ms; }
+.chip { padding: 3px 7px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.dot { width: 8px; height: 8px; background: var(--red); flex: none; display: inline-block; }
+.empty { padding: 64px 24px; text-align: center; color: var(--fg-2); }
+.empty b { display: block; font-size: 20px; color: var(--fg); margin-bottom: 6px; }
+.cmprow { display: grid; gap: 6px 16px; align-items: start; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.cmprow:hover { background: var(--surface-2); }
+.intro { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; max-width: 560px; padding-block: 56px; }
+.intro h2 { font-size: 20px; line-height: 25px; margin: 0; text-wrap: balance; }
+.rule { height: 2px; width: 48px; background: var(--plum); }
+.rule.s { width: 32px; }
+
+.aside { overflow: auto; background: var(--surface-2); border-left: 1px solid var(--line); flex-direction: column; top: 0; right: 0; bottom: 0; max-width: 100vw; z-index: 15; }
+.panel { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.closebar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px 10px 24px; background: var(--band); color: var(--band-fg); }
+.flabel { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.raw { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.tabtok { padding: 1px 5px; background: var(--sel); color: var(--plum); font-size: 10px; font-weight: 700; }
+.card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); }
+.aside .card.alt { background: var(--surface-2); }
+.overlay { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 24px; z-index: 20; }
+.dialog { width: 100%; max-height: 85vh; overflow: auto; background: var(--surface); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 16px; padding: 28px; }
+.pick { text-align: left; padding: 10px 12px; font-size: 13px; cursor: pointer; color: var(--fg); display: flex; flex-direction: column; gap: 4px; background: var(--surface); border: 1px solid var(--line-strong); }
+.pick.on { background: var(--sel); border: 2px solid var(--plum); }
+.toast { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 30; max-width: min(420px, calc(100vw - 32px)); padding: 12px 16px; background: #212121; color: #EAEAEA; box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.toggle input { accent-color: var(--plum); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+textarea.field { resize: vertical; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<noscript><p style="padding:24px">Keynote Manager needs JavaScript turned on.</p></noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: !0, configurable: !0, writable: !0, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key != "symbol" ? key + "" : key, value);
+const LS = "ljc-keynote-manager-v1", LSP = "ljc-keynote-prefs", SAMPLE = [
+  ["03 00 00", "CONCRETE", ""],
+  ["03 30 00", "Cast-in-Place Concrete", "03 00 00"],
+  ["03 30 00.A1", "CONCRETE SLAB ON GRADE, SEE STRUCTURAL", "03 30 00"],
+  ["03 30 00.A2", "CONCRETE TOPPING SLAB OVER METAL DECK", "03 30 00"],
+  ["03 30 00.A3", 'CONCRETE HOUSEKEEPING PAD, 4" HIGH', "03 30 00"],
+  ["03 35 00", "Concrete Finishing", "03 00 00"],
+  ["03 35 00.A1", "POLISHED CONCRETE FINISH, CLASS B", "03 35 00"],
+  ["03 35 00.A2", "SEALED CONCRETE FLOOR", "03 35 00"],
+  ["04 00 00", "MASONRY", ""],
+  ["04 20 00", "Unit Masonry", "04 00 00"],
+  ["04 20 00.A1", '8" CMU WALL, GROUT SOLID AT REINFORCED CELLS', "04 20 00"],
+  ["04 20 00.A2", "MODULAR FACE BRICK VENEER", "04 20 00"],
+  ["05 00 00", "METALS", ""],
+  ["05 12 00", "Structural Steel Framing", "05 00 00"],
+  ["05 12 00.A1", "STEEL COLUMN, SEE STRUCTURAL", "05 12 00"],
+  ["05 50 00", "Metal Fabrications", "05 00 00"],
+  ["05 50 00.A1", "STEEL PIPE BOLLARD, CONCRETE FILLED, PAINTED", "05 50 00"],
+  ["05 50 00.A2", "STEEL ANGLE LINTEL", "05 50 00"],
+  ["05 50 00.A3", "STEEL PAN STAIR WITH CONCRETE FILL", "05 50 00"],
+  ["06 00 00", "WOOD, PLASTICS, AND COMPOSITES", ""],
+  ["06 10 00", "Rough Carpentry", "06 00 00"],
+  ["06 10 00.A1", "FIRE-RETARDANT-TREATED WOOD BLOCKING", "06 10 00"],
+  ["06 41 00", "Architectural Wood Casework", "06 00 00"],
+  ["06 41 00.A1", "PLASTIC LAMINATE BASE CABINET", "06 41 00"],
+  ["06 41 00.A2", "SOLID SURFACE COUNTERTOP", "06 41 00"],
+  ["07 00 00", "THERMAL AND MOISTURE PROTECTION", ""],
+  ["07 21 00", "Thermal Insulation", "07 00 00"],
+  ["07 21 00.A1", "CONTINUOUS RIGID INSULATION, R-15", "07 21 00"],
+  ["07 21 00.A2", "BATT INSULATION, FULL DEPTH OF STUD", "07 21 00"],
+  ["07 54 00", "Thermoplastic Membrane Roofing", "07 00 00"],
+  ["07 54 00.A1", "TPO ROOF MEMBRANE, FULLY ADHERED", "07 54 00"],
+  ["07 92 00", "Joint Sealants", "07 00 00"],
+  ["07 92 00.A1", "SEALANT AND BACKER ROD", "07 92 00"],
+  ["08 00 00", "OPENINGS", ""],
+  ["08 11 13", "Hollow Metal Doors and Frames", "08 00 00"],
+  ["08 11 13.A1", "HOLLOW METAL FRAME, PAINTED", "08 11 13"],
+  ["08 44 13", "Glazed Aluminum Curtain Walls", "08 00 00"],
+  ["08 44 13.A1", 'ALUMINUM CURTAIN WALL SYSTEM, 1" INSULATED GLASS', "08 44 13"],
+  ["09 00 00", "FINISHES", ""],
+  ["09 21 16", "Gypsum Board Assemblies", "09 00 00"],
+  ["09 21 16.A1", '5/8" TYPE X GYPSUM BOARD', "09 21 16"],
+  ["09 21 16.A2", '5/8" MOISTURE-RESISTANT GYPSUM BOARD', "09 21 16"],
+  ["09 65 13", "Resilient Base", "09 00 00"],
+  ["09 65 13.A1", '4" RUBBER BASE', "09 65 13"],
+  ["09 91 00", "Painting", "09 00 00"],
+  ["09 91 00.A1", "PAINT, SEE FINISH SCHEDULE", "09 91 00"]
+], DEFAULT_PREFS = { density: "comfortable", colorByLevel: !0, showRawLine: !0, forceUppercase: !1, sortOnWrite: !1 }, lsGet = (k) => {
+  try {
+    return JSON.parse(localStorage.getItem(k) || "null");
+  } catch {
+    return null;
+  }
+}, lsSet = (k, v) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {
+  }
+}, clone = (o) => JSON.parse(JSON.stringify(o)), eq = (a, b) => !a && !b || !!a && !!b && a.text === b.text && a.parent === b.parent, clean = (t) => String(t || "").replace(/[\t\r\n]+/g, " ").trim(), nextKey = (last, items) => {
+  let m = last.match(/^(.*?)(\d+)$/);
+  if (m) {
+    let n = +m[2], c;
+    do
+      n++, c = m[1] + String(n).padStart(m[2].length, "0");
+    while (items[c]);
+    return c;
+  }
+  if (m = last.match(/^(.*?)([A-Y])$/), m) {
+    let ch = m[2].charCodeAt(0), c;
+    do
+      ch++, c = m[1] + String.fromCharCode(ch);
+    while (items[c] && ch < 90);
+    if (!items[c]) return c;
+  }
+  return "";
+};
+function natCmp(a, b) {
+  const ax = a.match(/\d+|\D+/g) || [], bx = b.match(/\d+|\D+/g) || [];
+  for (let i = 0; i < Math.min(ax.length, bx.length); i++) {
+    const x = ax[i], y = bx[i], nx = /^\d/.test(x), ny = /^\d/.test(y), c = nx && ny ? +x - +y || x.length - y.length : x < y ? -1 : x > y ? 1 : 0;
+    if (c) return c;
+  }
+  return ax.length - bx.length;
+}
+function parse(txt) {
+  const items = {}, order = [];
+  let dups = 0;
+  return txt.split(/\r?\n/).forEach((line) => {
+    if (!line.trim()) return;
+    const c = line.split("	"), key = (c[0] || "").trim();
+    key && (items[key] ? dups++ : order.push(key), items[key] = { text: c[1] || "", parent: (c[2] || "").trim(), tab: c.length > 1 });
+  }), { items, order, dups, eol: /\r?\n\s*$/.test(txt) };
+}
+const lineOf = (k, it) => it.parent ? k + "	" + it.text + "	" + it.parent : it.text || it.tab !== !1 ? k + "	" + it.text : k;
+function serializeOrdered(items, order, eol) {
+  const list = order.filter((k) => items[k]), isDesc = (k, anc) => {
+    let p = items[k] && items[k].parent, n = 0;
+    for (; p && n++ < 50; ) {
+      if (p === anc) return !0;
+      p = items[p] && items[p].parent;
+    }
+    return !1;
+  };
+  return Object.keys(items).filter((k) => !list.includes(k)).sort(natCmp).forEach((nk) => {
+    const par = items[nk].parent, prev = list.filter((k) => items[k].parent === par && natCmp(k, nk) < 0).sort(natCmp).pop();
+    let at = -1;
+    prev ? list.forEach((k, i) => {
+      (k === prev || isDesc(k, prev)) && (at = Math.max(at, i));
+    }) : par && list.includes(par) && (at = list.indexOf(par)), at < 0 ? list.push(nk) : list.splice(at + 1, 0, nk);
+  }), list.map((k) => lineOf(k, items[k])).join(`\r
+`) + (eol === !1 ? "" : `\r
+`);
+}
+function serialize(items) {
+  const keys = Object.keys(items), kids = {}, roots = [], seen = {}, out = [];
+  keys.forEach((k) => {
+    const p = items[k].parent;
+    p && items[p] && p !== k ? (kids[p] = kids[p] || []).push(k) : roots.push(k);
+  });
+  const walk = (k) => {
+    if (seen[k]) return;
+    seen[k] = 1;
+    const it = items[k];
+    out.push(lineOf(k, it)), (kids[k] || []).sort(natCmp).forEach(walk);
+  };
+  return roots.sort(natCmp).forEach(walk), keys.filter((k) => !seen[k]).sort(natCmp).forEach(walk), out.join(`\r
+`) + `\r
+`;
+}
+function decode(buf) {
+  const u = new Uint8Array(buf);
+  if (u[0] === 255 && u[1] === 254) return { text: new TextDecoder("utf-16le").decode(u.subarray(2)), enc: "utf-16le" };
+  if (u[0] === 254 && u[1] === 255) return { text: new TextDecoder("utf-16be").decode(u.subarray(2)), enc: "utf-16be" };
+  if (u[0] === 239 && u[1] === 187 && u[2] === 191) return { text: new TextDecoder("utf-8").decode(u.subarray(3)), enc: "utf-8-bom" };
+  try {
+    const t = new TextDecoder("utf-8", { fatal: !0 }).decode(u);
+    return { text: t, enc: /[^\x00-\x7F]/.test(t) ? "utf-8" : "ansi" };
+  } catch {
+    return { text: new TextDecoder("windows-1252").decode(u), enc: "ansi" };
+  }
+}
+let CP;
+function encode(text, enc) {
+  if (enc === "utf-16le" || enc === "utf-16be") {
+    const b2 = new Uint8Array(2 + text.length * 2), le = enc === "utf-16le";
+    b2[0] = le ? 255 : 254, b2[1] = le ? 254 : 255;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      b2[2 + i * 2 + (le ? 0 : 1)] = c & 255, b2[2 + i * 2 + (le ? 1 : 0)] = c >> 8;
+    }
+    return { bytes: b2, lossy: 0 };
+  }
+  if (enc === "utf-8" || enc === "utf-8-bom") {
+    const e = new TextEncoder().encode(text);
+    if (enc === "utf-8") return { bytes: e, lossy: 0 };
+    const b2 = new Uint8Array(e.length + 3);
+    return b2.set([239, 187, 191]), b2.set(e, 3), { bytes: b2, lossy: 0 };
+  }
+  if (!CP) {
+    CP = {};
+    const d = new TextDecoder("windows-1252");
+    for (let i = 128; i < 256; i++) CP[d.decode(new Uint8Array([i]))] = i;
+  }
+  const b = new Uint8Array(text.length);
+  let lossy = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], c = ch.charCodeAt(0);
+    c < 128 ? b[i] = c : CP[ch] != null ? b[i] = CP[ch] : (b[i] = 63, lossy++);
+  }
+  return { bytes: b, lossy };
+}
+const ENC_LABEL = { ansi: "ANSI", "utf-8": "UTF-8", "utf-8-bom": "UTF-8 BOM", "utf-16le": "Unicode (UTF-16)", "utf-16be": "UTF-16 BE" };
+function merge(base, mine, theirs) {
+  const result = clone(theirs), conflicts = [];
+  return (/* @__PURE__ */ new Set([...Object.keys(base), ...Object.keys(mine), ...Object.keys(theirs)])).forEach((k) => {
+    const b = base[k], m = mine[k], t = theirs[k];
+    if (!eq(m, b)) {
+      if (eq(t, b) || eq(t, m)) {
+        m ? result[k] = clone(m) : delete result[k];
+        return;
+      }
+      conflicts.push({ key: k, mine: m || null, theirs: t || null, pick: "mine" });
+    }
+  }), { result, conflicts };
+}
+function Hl({ str, q }) {
+  if (!q) return str;
+  const out = [], low = str.toLowerCase();
+  let i = 0, n = 0;
+  for (; i < str.length; ) {
+    const j = low.indexOf(q, i);
+    if (j < 0) {
+      out.push(str.slice(i));
+      break;
+    }
+    j > i && out.push(str.slice(i, j)), out.push(/* @__PURE__ */ React.createElement("mark", { key: n++ }, str.slice(j, j + q.length))), i = j + q.length;
+  }
+  return out;
+}
+const fmtVal = (v) => v ? v.text + (v.parent ? "  (under " + v.parent + ")" : "  (top level)") : "Deleted", idb = (mode, fn) => new Promise((res) => {
+  try {
+    if (!window.indexedDB) return res(null);
+    const r = indexedDB.open("ljc-keynote-manager", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv"), r.onerror = () => res(null), r.onsuccess = () => {
+      try {
+        const tx = r.result.transaction("kv", mode), q = fn(tx.objectStore("kv"));
+        tx.oncomplete = () => res(q && q.result), tx.onerror = () => res(null);
+      } catch {
+        res(null);
+      }
+    };
+  } catch {
+    res(null);
+  }
+}), saveHandle = (hd) => idb("readwrite", (st) => st.put(hd, "file")), loadHandle = () => idb("readonly", (st) => st.get("file")), LSS = "ljc-keynote-specs", LSD = "ljc-keynote-drawings", pickFolderFiles = () => new Promise((res) => {
+  const el = document.createElement("input");
+  el.type = "file", el.multiple = !0, el.setAttribute("webkitdirectory", ""), el.style.display = "none", document.body.appendChild(el), el.onchange = () => {
+    res(Array.from(el.files || [])), el.remove();
+  }, el.click();
+}), walkDir = async (dir, test, depth = 0, path = "", out = []) => {
+  for await (const [n, hd] of dir.entries())
+    hd.kind === "file" ? test(n) && out.push({ name: n, path: path + n, hd }) : depth < 5 && await walkDir(hd, test, depth + 1, path + n + "/", out);
+  return out;
+}, loadSpecDir = () => idb("readonly", (st) => st.get("specdir")), SPEC_RE = /(^|[^0-9])(\d{2})[ ._-]?(\d{2})[ ._-]?(\d{2})(?![0-9])/;
+function parseSpec(name) {
+  if (/^(~\$|\.)/.test(name)) return null;
+  const base = name.replace(/\.[A-Za-z0-9]{1,5}$/, ""), m = base.match(SPEC_RE);
+  if (!m) return null;
+  const sec = m[2] + " " + m[3] + m[4];
+  if (/ 0000$/.test(sec)) return null;
+  const tidy = (t) => t.replace(/_+/g, " ").replace(/^[\s.,–—-]+|[\s.,–—-]+$/g, "").replace(/\s+/g, " "), rest = tidy(base.slice(m.index + m[0].length).replace(/^\.\d{2}(?![0-9])/, "")), pre = tidy(base.slice(0, m.index + m[1].length).replace(/section\s*$/i, ""));
+  return { sec, title: rest || pre };
+}
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/", KN_RE = /(?<!\d)(\d{2})\s?(\d{2})\s?(\d{2})\s?\.\s?([A-Za-z0-9]{1,4})(?![A-Za-z0-9])/g, normT = (t) => String(t || "").toUpperCase().replace(/&/g, " AND ").replace(/[^A-Z0-9]+/g, " ").trim(), fmtWhen = (t) => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), Btn = ({ variant = "primary", disabled, onClick, children }) => /* @__PURE__ */ React.createElement("button", { className: "btn btn-" + variant, disabled: !!disabled, onClick }, children), SearchIcon = () => /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", strokeWidth: "1.6" }, /* @__PURE__ */ React.createElement("circle", { cx: "7", cy: "7", r: "5" }), /* @__PURE__ */ React.createElement("path", { d: "M11 11l3.5 3.5" })), Chip = ({ bg, fg, children }) => /* @__PURE__ */ React.createElement("span", { className: "chip", style: { background: bg, color: fg } }, children), C = {
+  ink: ["var(--chip-ink-bg)", "var(--chip-ink-fg)"],
+  gold: ["var(--gold)", "var(--on-gold)"],
+  plum: ["var(--sel)", "var(--plum)"],
+  neutral: ["var(--chip-n-bg)", "var(--chip-n-fg)"]
+};
+class App extends React.Component {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "state", { items: {}, base: {}, order: [], eol: !0, fileName: "", enc: "ansi", linked: !1, query: "", view: "all", scope: "", collapsed: {}, sel: null, draft: null, conflicts: null, confirmDel: null, toast: null, remoteChanged: !1, lastSync: null, prefs: { ...DEFAULT_PREFS, ...lsGet(LSP) || {} }, showPrefs: !1, exportText: null });
+    __publicField(this, "fileRef", React.createRef());
+    __publicField(this, "searchRef", React.createRef());
+    __publicField(this, "listRef", React.createRef());
+    __publicField(this, "handle", null);
+    __publicField(this, "mtime", null);
+    __publicField(this, "pending", null);
+    __publicField(this, "onResize", () => this.setState({ w: window.innerWidth }));
+    __publicField(this, "reconnect", async () => {
+      const hd = this.saved;
+      if (hd)
+        try {
+          if (await hd.requestPermission({ mode: "readwrite" }) !== "granted") return this.toast("Permission was not granted", "error");
+          this.handle = hd, this.setState({ relink: null }), await this.ingest(await hd.getFile(), !0);
+        } catch {
+          this.setState({ relink: null }), this.toast("Could not reach " + hd.name + ". Open it again.", "error");
+        }
+    });
+    __publicField(this, "openFile", async () => {
+      if (window.showOpenFilePicker)
+        try {
+          const [h] = await window.showOpenFilePicker({ types: [{ description: "Revit keynote file", accept: { "text/plain": [".txt"] } }] });
+          this.handle = h, this.saved = h, saveHandle(h), this.setState({ relink: null });
+          const f = await h.getFile();
+          await this.ingest(f, !0);
+          return;
+        } catch (e) {
+          if (e && e.name === "AbortError") return;
+        }
+      this.fileRef.current && this.fileRef.current.click();
+    });
+    __publicField(this, "onFilePicked", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "", f && (this.handle = null, await this.ingest(f, !1));
+    });
+    __publicField(this, "resolveConflicts", () => {
+      const p = this.pending;
+      p && (this.state.conflicts.forEach((c) => {
+        const v = c.pick === "mine" ? c.mine : c.theirs;
+        v ? p.result[c.key] = clone(v) : delete p.result[c.key];
+      }), this.pending = null, this.applyMerge(p.result, p.theirs, p.then));
+    });
+    __publicField(this, "cancelMerge", () => {
+      this.pending = null, this.setState({ conflicts: null }), this.toast("Merge cancelled. Nothing was written.", "warn");
+    });
+    __publicField(this, "refresh", async () => {
+      if (this.handle)
+        try {
+          const theirs = await this.readDisk();
+          this.mtime = this.lastRead, this.pull(theirs, () => this.toast("Up to date with the file"));
+        } catch (e) {
+          this.toast("Could not read the file: " + e.message, "error");
+        }
+    });
+    __publicField(this, "checkRemote", async () => {
+      if (!(!this.handle || this.state.remoteChanged))
+        try {
+          const f = await this.handle.getFile();
+          this.mtime && f.lastModified !== this.mtime && this.setState({ remoteChanged: !0 });
+        } catch {
+        }
+    });
+    __publicField(this, "publish", async () => {
+      if (!this.handle) {
+        this.download();
+        return;
+      }
+      try {
+        if (this.handle.requestPermission && await this.handle.requestPermission({ mode: "readwrite" }) !== "granted") return this.toast("Write permission was not granted", "error");
+        const theirs = await this.readDisk();
+        this.pull(theirs, () => this.writeOut());
+      } catch (e) {
+        this.toast("Publish failed: " + e.message, "error");
+      }
+    });
+    __publicField(this, "writeOut", async () => {
+      try {
+        if ((await this.handle.getFile()).lastModified !== this.lastRead)
+          return this.toast("File changed while merging. Merging again.", "warn"), this.publish();
+        const n = this.pendingCount(), { bytes, lossy } = encode(this.fileText(), this.state.enc), w = await this.handle.createWritable();
+        await w.write(bytes), await w.close(), this.mtime = (await this.handle.getFile()).lastModified, this.setState((s) => ({ base: clone(s.items), lastSync: Date.now(), remoteChanged: !1 })), this.toast(n ? "Published " + n + " change" + (n === 1 ? "" : "s") + " to " + this.state.fileName : "File re-sorted and saved" + (lossy ? " \xB7 " + lossy + " characters not supported in ANSI" : ""), lossy ? "warn" : "ok");
+      } catch (e) {
+        this.toast("Write failed: " + e.message, "error");
+      }
+    });
+    __publicField(this, "copyExport", async () => {
+      try {
+        await navigator.clipboard.writeText(this.state.exportText), this.toast("Copied. Paste it into " + (this.state.fileName || "the keynote file") + " and save.");
+      } catch {
+        const ta = document.getElementById("export-text");
+        ta && (ta.focus(), ta.select()), this.toast("Press Ctrl C to copy the selected text", "warn");
+      }
+    });
+    __publicField(this, "markExported", () => this.setState((s) => ({ base: clone(s.items), exportText: null })));
+    __publicField(this, "chooseDrawings", async () => {
+      if (window.showDirectoryPicker)
+        try {
+          const d = await window.showDirectoryPicker({ id: "ljc-drawings", mode: "read" });
+          return this.drawHandle = d, idb("readwrite", (st) => st.put(d, "drawdir")), this.scanDrawDir(d);
+        } catch (e) {
+          if (e && e.name === "AbortError") return;
+        }
+      const files = (await pickFolderFiles()).filter((f) => /\.pdf$/i.test(f.name));
+      if (!files.length) return this.toast("No PDF files in that folder", "error");
+      const root = (files[0].webkitRelativePath || "").split("/")[0] || "Selected folder";
+      this.scanPdfs(files.map((f) => ({ file: f, path: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name })), root);
+    });
+    __publicField(this, "rescanDrawings", async () => {
+      const d = this.drawHandle || await idb("readonly", (st) => st.get("drawdir"));
+      if (!d || !d.entries) return this.chooseDrawings();
+      try {
+        let p = d.queryPermission ? await d.queryPermission({ mode: "read" }) : "granted";
+        if (p !== "granted" && (p = await d.requestPermission({ mode: "read" })), p !== "granted") return this.toast("Permission was not granted", "error");
+        this.drawHandle = d, await this.scanDrawDir(d);
+      } catch {
+        this.chooseDrawings();
+      }
+    });
+    __publicField(this, "chooseSpecFolder", async () => {
+      if (window.showDirectoryPicker)
+        try {
+          const d = await window.showDirectoryPicker({ id: "ljc-specs", mode: "read" });
+          return this.specHandle = d, idb("readwrite", (st) => st.put(d, "specdir")), this.scanDir(d);
+        } catch (e) {
+          if (e && e.name === "AbortError") return;
+        }
+      const files = await pickFolderFiles();
+      files.length && this.onSpecPicked(files);
+    });
+    __publicField(this, "onSpecPicked", (fl) => {
+      const root = (fl[0].webkitRelativePath || "").split("/")[0] || "Selected folder";
+      this.specHandle = null, this.setSpecs(root, fl.filter((f) => parseSpec(f.name)).map((f) => ({ name: f.name, path: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name })));
+    });
+    __publicField(this, "rescanSpecs", async () => {
+      const d = this.specHandle || await loadSpecDir();
+      if (!d || !d.entries) return this.chooseSpecFolder();
+      try {
+        let p = d.queryPermission ? await d.queryPermission({ mode: "read" }) : "granted";
+        if (p !== "granted" && (p = await d.requestPermission({ mode: "read" })), p !== "granted") return this.toast("Permission was not granted", "error");
+        this.specHandle = d, await this.scanDir(d);
+      } catch {
+        this.chooseSpecFolder();
+      }
+    });
+    __publicField(this, "saveDraft", () => {
+      const err = this.validate();
+      if (err) return this.toast(err, "error");
+      const d = this.state.draft, key = d.key.trim(), text = this.finalText(d.text), next = { ...this.state.items };
+      !d.isNew && d.origKey !== key && (delete next[d.origKey], Object.keys(next).forEach((k) => {
+        next[k].parent === d.origKey && (next[k] = { ...next[k], parent: key });
+      })), next[key] = { text, parent: d.parent };
+      let order = !d.isNew && d.origKey !== key ? this.state.order.map((k) => k === d.origKey ? key : k) : this.state.order;
+      if (d.isNew && d.after && !order.includes(key) && order.includes(d.after)) {
+        let at = order.indexOf(d.after);
+        order.forEach((k, i) => {
+          i > at && this.isDesc(k, d.after) && (at = i);
+        }), order = order.slice(0, at + 1).concat(key, order.slice(at + 1));
+      }
+      this.setState({ order, items: next, sel: key, draft: { origKey: key, key, text, parent: d.parent, isNew: !1 } }), this.toast((d.isNew ? "Added " : "Saved ") + key + ". Publish to write it to the file.");
+    });
+    __publicField(this, "askDelete", () => {
+      const k = this.state.draft && this.state.draft.origKey;
+      if (!k) return;
+      const n = Object.keys(this.state.items).filter((x) => this.isDesc(x, k)).length;
+      if (!n) return this.doDelete(k, !1);
+      this.setState({ confirmDel: { key: k, count: n } });
+    });
+  }
+  componentDidMount() {
+    const saved = lsGet(LS);
+    if (saved && saved.items) this.setState({ items: saved.items, base: saved.base || {}, order: saved.order || Object.keys(saved.items), eol: saved.eol !== !1, fileName: saved.fileName || "Keynotes.txt", enc: saved.enc || "ansi" });
+    else {
+      const it = {};
+      SAMPLE.forEach(([k, t, p]) => it[k] = { text: t, parent: p }), this.setState({ items: it, base: clone(it), order: SAMPLE.map((r) => r[0]), fileName: "Sample Keynotes.txt" });
+    }
+    this.poll = setInterval(() => this.checkRemote(), 1e4), this.restoreLink();
+    const dw = lsGet(LSD);
+    dw && dw.hits && this.setState({ draw: dw });
+    const sp = lsGet(LSS);
+    sp && sp.files && this.setState({ specs: sp }), this.onKey = (e) => {
+      const tag = (e.target.tagName || "").toLowerCase();
+      (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" ? (e.preventDefault(), this.state.draft && this.saveDraft()) : e.key === "Escape" ? this.state.showPrefs ? this.setState({ showPrefs: !1 }) : this.state.exportText != null ? this.setState({ exportText: null }) : this.state.confirmDel ? this.setState({ confirmDel: null }) : this.state.conflicts || this.setState({ draft: null, sel: null }) : e.key === "/" && tag !== "input" && tag !== "textarea" && tag !== "select" && (e.preventDefault(), this.searchRef.current && this.searchRef.current.focus());
+    }, window.addEventListener("keydown", this.onKey), window.addEventListener("resize", this.onResize), this.onResize(), window.claude && window.claude.use && window.claude.use("downloads").then((d) => {
+      this.downloads = d;
+    }).catch(() => {
+    });
+  }
+  componentWillUnmount() {
+    clearInterval(this.poll), clearTimeout(this.tt), window.removeEventListener("keydown", this.onKey), window.removeEventListener("resize", this.onResize);
+  }
+  componentDidUpdate() {
+    const s = this.state, ps = this.prevSaved || {};
+    (ps.items !== s.items || ps.base !== s.base || ps.fileName !== s.fileName || ps.enc !== s.enc || ps.order !== s.order) && (this.prevSaved = { items: s.items, base: s.base, fileName: s.fileName, enc: s.enc, order: s.order }, lsSet(LS, { items: s.items, base: s.base, order: s.order, eol: s.eol, fileName: s.fileName, enc: s.enc }));
+  }
+  setPref(k, v) {
+    this.setState((s) => {
+      const prefs = { ...s.prefs, [k]: v };
+      return lsSet(LSP, prefs), { prefs };
+    });
+  }
+  toast(msg, tone) {
+    clearTimeout(this.tt), this.setState({ toast: { msg, tone: tone || "ok" } }), this.tt = setTimeout(() => this.setState({ toast: null }), 4200);
+  }
+  pendingCount() {
+    const { items, base } = this.state;
+    let n = 0;
+    return (/* @__PURE__ */ new Set([...Object.keys(items), ...Object.keys(base)])).forEach((k) => {
+      eq(items[k], base[k]) || n++;
+    }), n;
+  }
+  // ---------- file ----------
+  async restoreLink() {
+    try {
+      const hd = await loadHandle();
+      if (!hd || !hd.getFile) return;
+      this.saved = hd, (hd.queryPermission ? await hd.queryPermission({ mode: "readwrite" }) : "granted") === "granted" ? (this.handle = hd, await this.ingest(await hd.getFile(), !0)) : this.setState({ relink: hd.name });
+    } catch {
+      this.setState({ relink: null });
+    }
+  }
+  async ingest(f, linked) {
+    const { text, enc } = decode(await f.arrayBuffer()), { items: theirs, dups, order, eol } = parse(text);
+    this.mtime = f.lastModified;
+    const sameFile = f.name === this.state.fileName && this.pendingCount() > 0;
+    this.setState({ fileName: f.name, enc, linked, eol, remoteChanged: !1 }), this.diskOrder = order, sameFile ? this.pull(theirs, () => this.toast("Opened " + f.name + " and kept your unpublished edits")) : (this.setState({ items: theirs, base: clone(theirs), order, sel: null, draft: null, scope: "", lastSync: Date.now() }), this.toast("Opened " + f.name + " \xB7 " + Object.keys(theirs).length + " keynotes" + (dups ? " \xB7 " + dups + " duplicate keys merged" : "")));
+  }
+  async readDisk() {
+    const f = await this.handle.getFile();
+    this.lastRead = f.lastModified;
+    const p = parse(decode(await f.arrayBuffer()).text);
+    return this.diskOrder = p.order, p.items;
+  }
+  pull(theirs, then) {
+    const { result, conflicts } = merge(this.state.base, this.state.items, theirs);
+    conflicts.length ? (this.pending = { result, theirs, then }, this.setState({ conflicts })) : this.applyMerge(result, theirs, then);
+  }
+  applyMerge(result, theirs, then) {
+    this.setState((s) => ({ items: result, base: clone(theirs), order: this.diskOrder || s.order, conflicts: null, remoteChanged: !1, lastSync: Date.now(), sel: s.sel && result[s.sel] ? s.sel : null, draft: s.draft && (s.draft.isNew || result[s.draft.origKey]) ? s.draft : null }), then);
+  }
+  fileText() {
+    const s = this.state;
+    return s.prefs.sortOnWrite ? serialize(s.items) : serializeOrdered(s.items, s.order, s.eol);
+  }
+  async download() {
+    const name = this.state.fileName || "Keynotes.txt", text = this.fileText(), { bytes, lossy } = encode(text, this.state.enc), dl = this.downloads;
+    if (dl && dl.save) {
+      const tries = [() => dl.save({ filename: name, data: new Blob([bytes], { type: "text/plain" }) }), () => dl.save({ filename: name, data: bytes, mimeType: "text/plain" })];
+      for (const t of tries)
+        try {
+          await t(), this.setState((s) => ({ base: clone(s.items) })), this.toast("Saved " + name + (lossy ? " \xB7 " + lossy + " characters not supported in ANSI" : ""), lossy ? "warn" : "ok");
+          return;
+        } catch (e) {
+          const code = e && (e.code || e.name);
+          if (code === "declined" || code === "cancelled" || code === "canceled" || code === "AbortError" || code === "user_declined") {
+            this.toast("Download cancelled. Your changes are still here.", "warn");
+            return;
+          }
+        }
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([bytes], { type: "text/plain" })), a = document.createElement("a");
+      a.href = url, a.download = name, document.body.appendChild(a), a.click(), a.remove(), setTimeout(() => URL.revokeObjectURL(url), 2e3), this.setState((s) => ({ base: clone(s.items) })), this.toast("Downloaded " + name + (lossy ? " \xB7 " + lossy + " characters not supported in ANSI" : ""), lossy ? "warn" : "ok");
+    } catch {
+      this.setState({ exportText: text });
+    }
+  }
+  // ---------- editing ----------
+  isDesc(k, anc) {
+    const items = this.state.items;
+    let p = items[k] && items[k].parent, n = 0;
+    for (; p && n++ < 50; ) {
+      if (p === anc) return !0;
+      p = items[p] && items[p].parent;
+    }
+    return !1;
+  }
+  select(k) {
+    const it = this.state.items[k];
+    it && this.setState({ sel: k, draft: { origKey: k, key: k, text: it.text, parent: it.parent, isNew: !1 } });
+  }
+  async scanDrawDir(d) {
+    let found;
+    try {
+      found = await walkDir(d, (n) => /\.pdf$/i.test(n) && !/^[~.]/.test(n));
+    } catch {
+      return this.toast("Could not read that folder", "error");
+    }
+    if (!found.length) return this.toast("No PDF files in " + d.name, "error");
+    const files = [];
+    for (const x of found)
+      try {
+        files.push({ file: await x.hd.getFile(), path: x.path });
+      } catch {
+      }
+    this.scanPdfs(files, d.name);
+  }
+  loadPdfJs() {
+    return window.pdfjsLib ? Promise.resolve(window.pdfjsLib) : this._pdf || (this._pdf = new Promise((res, rej) => {
+      const sc = document.createElement("script");
+      sc.src = PDFJS + "pdf.min.js", sc.onload = () => {
+        const lib = window.pdfjsLib;
+        lib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js";
+        try {
+          const url = URL.createObjectURL(new Blob(['importScripts("' + PDFJS + 'pdf.worker.min.js");'], { type: "text/javascript" }));
+          lib.GlobalWorkerOptions.workerPort = new Worker(url);
+        } catch {
+        }
+        res(lib);
+      }, sc.onerror = () => {
+        this._pdf = null, rej(new Error("load"));
+      }, document.head.appendChild(sc);
+    }));
+  }
+  async scanPdfs(fl, folder) {
+    fl.sort((a, b) => natCmp(a.path, b.path));
+    let lib;
+    try {
+      lib = await this.loadPdfJs();
+    } catch {
+      return this.toast("Could not load the PDF reader. Check the internet connection.", "error");
+    }
+    const hits = {}, numHits = {}, items = this.state.items;
+    let pages = 0, bad = 0;
+    for (const { file: f, path } of fl) {
+      let doc;
+      try {
+        doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise;
+      } catch {
+        bad++;
+        continue;
+      }
+      const base = f.name.replace(/\.pdf$/i, "");
+      let labels = null;
+      try {
+        labels = await doc.getPageLabels();
+      } catch {
+      }
+      for (let i = 1; i <= doc.numPages; i++) {
+        this.setState({ drawBusy: "Reading " + path + " \xB7 page " + i + " of " + doc.numPages });
+        try {
+          const pg = await doc.getPage(i), txt = (await pg.getTextContent()).items.map((t) => t.str).join(" "), pl = labels && labels[i - 1] && labels[i - 1].trim(), label = doc.numPages === 1 ? pl || base : pl ? fl.length > 1 ? base + " \xB7 " + pl : pl : fl.length > 1 ? base + " p." + i : "p." + i, found = /* @__PURE__ */ new Set(), nf = /* @__PURE__ */ new Set();
+          let m;
+          for (KN_RE.lastIndex = 0; m = KN_RE.exec(txt); ) found.add(m[1] + " " + m[2] + m[3] + "." + m[4].toUpperCase());
+          const r2 = /(?<![\d.])(\d{3})(?![\d.])/g;
+          for (; m = r2.exec(txt); ) items[m[1]] && items[m[1]].parent && nf.add(m[1]);
+          found.forEach((k) => (hits[k] = hits[k] || []).push(label)), nf.forEach((k) => (numHits[k] = numHits[k] || []).push(label)), pg.cleanup && pg.cleanup();
+        } catch {
+        }
+      }
+      pages += doc.numPages, doc.destroy && doc.destroy();
+    }
+    const draw = { folder, nFiles: fl.length - bad, pages, at: Date.now(), hits, numHits };
+    this.setState({ draw, drawBusy: null }), lsSet(LSD, draw), this.toast("Found " + Object.keys(hits).length + " keynotes on " + pages + " page" + (pages === 1 ? "" : "s") + (bad ? " \xB7 " + bad + " PDF" + (bad === 1 ? "" : "s") + " could not be read" : ""));
+  }
+  createFromDrawing(key) {
+    const items = this.state.items, sec = key.slice(0, 7), div = key.slice(0, 2) + " 0000", parent = items[sec] ? sec : items[div] ? div : "";
+    this.startNew(parent, ""), this.setState((s) => ({ draft: s.draft ? { ...s.draft, key } : s.draft }));
+  }
+  async scanDir(d) {
+    const files = [], walk = async (dir, path, depth) => {
+      for await (const [n, hd] of dir.entries())
+        hd.kind === "file" ? parseSpec(n) && files.push({ name: n, path: path + n }) : depth < 4 && await walk(hd, path + n + "/", depth + 1);
+    };
+    this.setState({ specBusy: !0 });
+    try {
+      await walk(d, "", 0);
+    } catch {
+      return this.setState({ specBusy: !1 }), this.toast("Could not read that folder", "error");
+    }
+    this.setSpecs(d.name, files);
+  }
+  setSpecs(folder, files) {
+    const specs = { folder, files, at: Date.now() };
+    this.setState({ specs, specBusy: !1 }), lsSet(LSS, specs), this.toast("Found " + files.length + " spec file" + (files.length === 1 ? "" : "s") + " in " + folder);
+  }
+  addSection(sec, title) {
+    if (this.state.items[sec]) return;
+    const div = sec.slice(0, 2) + " 0000", text = clean(title).toUpperCase() || "SECTION " + sec;
+    this.setState((s) => ({ items: { ...s.items, [sec]: { text, parent: s.items[div] ? div : "" } } })), this.toast("Added " + sec + " " + text + " \xB7 publish to write it to the file");
+  }
+  useSpecTitle(sec, title) {
+    const text = clean(title).toUpperCase();
+    text && (this.setState((s) => ({ items: { ...s.items, [sec]: { ...s.items[sec], text } } })), this.toast(sec + " renamed to " + text + " \xB7 publish to write it to the file"));
+  }
+  reveal(k) {
+    const items = this.state.items, anc = [];
+    let p = items[k].parent, n = 0;
+    for (; p && items[p] && n++ < 50; )
+      anc.push(p), p = items[p].parent;
+    const root = anc.length ? anc[anc.length - 1] : k;
+    this.setState((s) => {
+      const collapsed = { ...s.collapsed };
+      return anc.forEach((a) => collapsed[a] = !1), { page: "keynotes", query: "", view: "all", collapsed, scope: s.scope && s.scope !== root ? "" : s.scope };
+    }, () => {
+      this.select(k), requestAnimationFrame(() => {
+        const box = this.listRef.current;
+        if (!box) return;
+        const el = box.querySelector('[data-key="' + (window.CSS && CSS.escape ? CSS.escape(k) : k) + '"]');
+        if (!el) return;
+        const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+        box.scrollTo({ top: box.scrollTop + r.top - b.top - b.height / 2 + r.height / 2, behavior: "smooth" });
+      });
+    });
+  }
+  suggestKey(parent, after) {
+    const items = this.state.items;
+    if (after) {
+      const c = nextKey(after, items);
+      if (c) return c;
+    }
+    const sib = Object.keys(items).filter((k) => items[k].parent === parent).sort(natCmp), last = sib[sib.length - 1];
+    if (last) {
+      const c = nextKey(last, items);
+      if (c) return c;
+    }
+    return parent ? parent + ".1A" : "";
+  }
+  startNew(parent, text, after) {
+    this.setState((s) => ({ sel: null, collapsed: parent ? { ...s.collapsed, [parent]: !1 } : s.collapsed, draft: { origKey: null, key: this.suggestKey(parent, after), text: text || "", parent, after: after || null, isNew: !0 } }));
+  }
+  validate() {
+    const d = this.state.draft, items = this.state.items;
+    if (!d) return "";
+    const k = d.key.trim();
+    return k ? k !== d.origKey && items[k] ? "Key " + k + " already exists" : d.parent === k ? "A keynote cannot be its own parent" : !d.isNew && d.parent && (d.parent === d.origKey || this.isDesc(d.parent, d.origKey)) ? "Parent cannot be one of its own children" : d.parent && !items[d.parent] ? "Parent " + d.parent + " does not exist" : d.parent && !clean(d.text) ? "Keynote text is required" : "" : "Key is required";
+  }
+  finalText(t) {
+    const c = clean(t);
+    return this.state.prefs.forceUppercase ? c.toUpperCase() : c;
+  }
+  doDelete(k, all) {
+    const items = this.state.items, next = { ...items }, parent = items[k].parent;
+    all ? Object.keys(items).forEach((x) => {
+      this.isDesc(x, k) && delete next[x];
+    }) : Object.keys(next).forEach((x) => {
+      next[x].parent === k && (next[x] = { ...next[x], parent });
+    }), delete next[k], this.setState({ items: next, sel: null, draft: null, confirmDel: null, scope: this.state.scope === k ? "" : this.state.scope }), this.toast("Removed " + k + (all ? " and its children" : ""));
+  }
+  revert(k) {
+    const { items, base } = this.state, next = { ...items };
+    base[k] ? next[k] = clone(base[k]) : delete next[k], this.setState((s) => ({ items: next, draft: s.draft && s.draft.origKey === k ? null : s.draft, sel: s.sel === k ? null : s.sel }));
+  }
+  // ---------- derived data ----------
+  specData(s, items, keys) {
+    const sp = s.specs, f = s.specFilter || "all", sq = (s.specQuery || "").trim().toLowerCase(), rows = {}, row = (sec) => rows[sec] || (rows[sec] = { sec, kn: null, count: 0, mentions: [], files: [] });
+    keys.forEach((k) => {
+      /^\d{2} \d{4}$/.test(k) && !/ 0000$/.test(k) && (row(k).kn = items[k]);
+    }), keys.forEach((k) => {
+      let p = items[k].parent, n = 0;
+      for (; p && n++ < 50; ) {
+        if (rows[p] && rows[p].kn) {
+          rows[p].count++;
+          break;
+        }
+        p = items[p] && items[p].parent;
+      }
+      const re = /\b(\d{2}) ?(\d{2}) ?(\d{2})\b/g, t = items[k].text || "";
+      let m;
+      for (; m = re.exec(t); ) {
+        const sec = m[1] + " " + m[2] + m[3];
+        if (!/ 0000$/.test(sec) && sec !== k) {
+          const r = row(sec);
+          r.mentions.includes(k) || r.mentions.push(k);
+        }
+      }
+    }), (sp ? sp.files : []).forEach((fl) => {
+      const p = parseSpec(fl.name);
+      p && row(p.sec).files.push({ ...fl, title: p.title });
+    });
+    const all = Object.values(rows);
+    all.forEach((r) => {
+      const hasSpec = r.files.length > 0, used = !!r.kn || r.mentions.length > 0;
+      r.status = hasSpec && used ? r.kn && r.files.every((x) => x.title && normT(x.title) !== normT(r.kn.text)) && r.files.some((x) => x.title) ? "title" : "ok" : hasSpec ? "unused" : "missing";
+    });
+    const cnt = { all: all.length, missing: 0, unused: 0, title: 0, ok: 0 };
+    all.forEach((r) => cnt[r.status]++);
+    const META = { missing: ["Not in Spec", ...C.ink], unused: ["Not in Keynotes", ...C.gold], title: ["Title differs", ...C.plum], ok: ["Matched", ...C.neutral] }, sk = s.specSort || "sec", sd = s.specDir === "desc" ? -1 : 1, ORD = { missing: 0, unused: 1, title: 2, ok: 3 }, sval = { sec: (r) => r.sec, kn: (r) => r.kn ? r.kn.text : "\uFFFF", spec: (r) => {
+      const x = r.files.find((y) => y.title) || r.files[0];
+      return x ? x.title || x.name : "\uFFFF";
+    }, status: (r) => ORD[r.status] };
+    all.sort((a, b) => {
+      const va = sval[sk](a), vb = sval[sk](b);
+      return ((typeof va == "number" ? va - vb : String(va).localeCompare(String(vb), void 0, { numeric: !0, sensitivity: "base" })) || natCmp(a.sec, b.sec)) * sd;
+    });
+    const list = all.filter((r) => (f === "all" || r.status === f) && (!sq || r.sec.includes(sq) || r.kn && r.kn.text.toLowerCase().includes(sq) || r.files.some((x) => x.path.toLowerCase().includes(sq)))), actFor = (r) => {
+      const ft = r.files.find((x) => x.title) || r.files[0];
+      return r.status === "unused" ? ["Add to keynotes", () => this.addSection(r.sec, ft.title)] : r.status === "title" ? ["Use spec title", () => this.useSpecTitle(r.sec, ft.title)] : null;
+    }, dr = s.draft, dk = dr && !dr.isNew ? dr.origKey : null, rel = [];
+    if (dk && items[dk]) {
+      const push = (sec, why) => {
+        rows[sec] && !rel.some((x) => x.sec === sec) && rel.push({ sec, why });
+      };
+      rows[dk] && push(dk, "This section");
+      let p = items[dk].parent, n = 0;
+      for (; p && n++ < 50; ) {
+        if (rows[p] && rows[p].kn) {
+          push(p, "Parent section");
+          break;
+        }
+        p = items[p] && items[p].parent;
+      }
+      const re = /\b(\d{2}) ?(\d{2}) ?(\d{2})\b/g, t = items[dk].text || "";
+      let m;
+      for (; m = re.exec(t); ) push(m[1] + " " + m[2] + m[3], "Referenced in text");
+    }
+    return { sp, f, cnt, META, sk, sd, list, rows, rel, actFor, dk };
+  }
+  drawData(s, items) {
+    const dr = s.draw, sp = s.specs, f = s.drawFilter || "nospec", q = (s.drawQuery || "").trim().toLowerCase(), specMap = {};
+    (sp ? sp.files : []).forEach((fl) => {
+      const p = parseSpec(fl.name);
+      p && !specMap[p.sec] && (specMap[p.sec] = p.title || fl.name);
+    });
+    const all = [], add = (src, isNum) => Object.keys(src || {}).forEach((k) => {
+      const it = items[k], sec = isNum ? null : k.slice(0, 7), noSpec = !!(sec && sp && !specMap[sec]), noKn = !it;
+      all.push({ k, it, sec, noSpec, noKn, ok: !noSpec && !noKn, sheets: src[k] });
+    });
+    dr && (add(dr.hits, !1), s.drawNums && add(dr.numHits, !0));
+    const cnt = { all: all.length, nospec: 0, nokn: 0, ok: 0 };
+    all.forEach((r) => {
+      r.noSpec && cnt.nospec++, r.noKn && cnt.nokn++, r.ok && cnt.ok++;
+    });
+    const sk = s.drawSort || "key", sd = s.drawDir === "desc" ? -1 : 1, sval = { key: (r) => r.k, kn: (r) => r.it ? r.it.text : "\uFFFF", spec: (r) => r.sec && specMap[r.sec] ? specMap[r.sec] : "\uFFFF", sheets: (r) => -r.sheets.length, status: (r) => r.noSpec ? 0 : r.noKn ? 1 : 2 };
+    all.sort((a, b) => {
+      const va = sval[sk](a), vb = sval[sk](b);
+      return ((typeof va == "number" ? va - vb : String(va).localeCompare(String(vb), void 0, { numeric: !0, sensitivity: "base" })) || natCmp(a.k, b.k)) * sd;
+    });
+    const list = all.filter((r) => (f === "all" || f === "nospec" && r.noSpec || f === "nokn" && r.noKn || f === "ok" && r.ok) && (!q || r.k.toLowerCase().includes(q) || r.it && r.it.text.toLowerCase().includes(q) || r.sheets.some((x) => x.toLowerCase().includes(q))));
+    return { dr, sp, f, cnt, sk, sd, list, specMap };
+  }
+  // ---------- render ----------
+  renderSortHeads(heads, sk, sd, onSort) {
+    return heads.map(([id, label]) => /* @__PURE__ */ React.createElement("button", { key: id, className: "sorth" + (sk === id ? " on" : ""), onClick: () => onSort(id) }, label, /* @__PURE__ */ React.createElement("span", null, sk === id ? sd === 1 ? "\u25B2" : "\u25BC" : "")));
+  }
+  renderSpecPage(S, W) {
+    const s = this.state, items = s.items, cols = W < 760 ? "minmax(0,1fr)" : "minmax(84px,100px) minmax(0,1fr) minmax(0,1fr) minmax(200px,auto)", plural = (n, w) => n + " " + w + (n === 1 ? "" : "s"), tab = (id, label) => /* @__PURE__ */ React.createElement("button", { key: id, className: "tab" + (S.f === id ? " on" : ""), onClick: () => this.setState({ specFilter: id }) }, label, " \xB7 ", S.cnt[id]);
+    return /* @__PURE__ */ React.createElement("main", { className: "main" }, /* @__PURE__ */ React.createElement("div", { className: "toolbar gut" }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 200, flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Specification folder"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S.sp ? S.sp.folder : "No folder chosen"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--fg-2)" } }, s.specBusy ? "Scanning\u2026" : S.sp ? plural(S.sp.files.length, "spec file") + " \xB7 scanned " + fmtWhen(S.sp.at) : "Pick the project spec folder to compare")), /* @__PURE__ */ React.createElement("div", { className: "search", style: { maxWidth: 420 } }, /* @__PURE__ */ React.createElement(SearchIcon, null), /* @__PURE__ */ React.createElement("input", { id: "spec-search", className: "field", value: s.specQuery || "", onChange: (e) => this.setState({ specQuery: e.target.value }), placeholder: "Search sections, titles or file names" })), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8 } }, /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: this.chooseSpecFolder }, "Choose folder"), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: this.rescanSpecs, disabled: !S.sp || !!s.specBusy }, "Rescan"))), /* @__PURE__ */ React.createElement("div", { className: "tabs" }, S.sp ? [tab("all", "All"), tab("missing", "Not in Spec"), tab("unused", "Not in Keynotes"), tab("title", "Title differs"), tab("ok", "Matched")] : null)), S.sp && W >= 760 && /* @__PURE__ */ React.createElement("div", { className: "thead gut", style: { gridTemplateColumns: cols } }, this.renderSortHeads([["sec", "Section"], ["kn", "Keynotes"], ["spec", "Spec file"], ["status", "Status"]], S.sk, S.sd, (id) => this.setState((st) => ({ specSort: id, specDir: (st.specSort || "sec") === id && st.specDir !== "desc" ? "desc" : "asc" })))), /* @__PURE__ */ React.createElement("div", { className: "scroll" }, S.sp ? S.list.length ? S.list.map((r) => {
+      const hasKn = !!r.kn, hasSpec = r.files.length > 0, st = S.META[r.status], sec = r.sec, target = hasKn ? sec : r.mentions[0], ment = r.mentions.length ? "Mentioned in " + r.mentions.slice(0, 3).join(", ") + (r.mentions.length > 3 ? " +" + (r.mentions.length - 3) : "") : "", ft = r.files.find((x) => x.title) || r.files[0], act = S.actFor(r);
+      return /* @__PURE__ */ React.createElement("div", { key: sec, className: "cmprow gut", style: { gridTemplateColumns: cols, cursor: target ? "pointer" : "default" }, onClick: () => {
+        target && items[target] && this.select(target);
+      } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, sec), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } }, hasKn && /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, overflowWrap: "anywhere" } }, r.kn.text || "(no title)"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: hasKn || ment ? "var(--fg-2)" : "var(--muted)", overflowWrap: "anywhere" } }, hasKn ? [plural(r.count, "keynote"), ment].filter(Boolean).join(" \xB7 ") : ment || "Not in keynotes")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } }, hasSpec && /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, overflowWrap: "anywhere" } }, ft.title || "(no title in file name)"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: hasSpec ? "var(--fg-2)" : "var(--muted)", overflowWrap: "anywhere" } }, hasSpec ? r.files.map((x) => x.path).join(" \xB7 ") : "No spec file found")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(Chip, { bg: st[1], fg: st[2] }, st[0]), act && /* @__PURE__ */ React.createElement("button", { className: "mini", onClick: (e) => {
+        e.stopPropagation(), act[1]();
+      } }, act[0])));
+    }) : /* @__PURE__ */ React.createElement("div", { className: "gut", style: { paddingBlock: 48, color: "var(--fg-2)" } }, "Nothing in this view.") : /* @__PURE__ */ React.createElement("div", { className: "intro gut" }, /* @__PURE__ */ React.createElement("h2", null, "Compare keynotes with the project specifications"), /* @__PURE__ */ React.createElement("div", { className: "rule" }), /* @__PURE__ */ React.createElement("div", null, "Choose the folder that holds the spec sections. Files are matched by the section number in their name, such as ", /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 500 } }, "08 7100 - Door Hardware.pdf"), " or ", /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 500 } }, "087100.docx"), ". Subfolders are included."), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)", fontSize: 13 } }, "The folder is only read, never changed. You'll see which keynoted sections have no spec, which specs aren't keynoted, and where titles disagree."), /* @__PURE__ */ React.createElement(Btn, { onClick: this.chooseSpecFolder }, "Choose folder"))));
+  }
+  renderDrawPage(D, W) {
+    const s = this.state, items = s.items, dr = D.dr, cols = W < 760 ? "minmax(0,1fr)" : "minmax(100px,120px) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) minmax(180px,auto)", tab = (id, label) => /* @__PURE__ */ React.createElement("button", { key: id, className: "tab" + (D.f === id ? " on" : ""), onClick: () => this.setState({ drawFilter: id }) }, label, " \xB7 ", D.cnt[id]), hasNumHits = !!dr && Object.keys(dr.numHits || {}).length > 0;
+    return /* @__PURE__ */ React.createElement("main", { className: "main" }, /* @__PURE__ */ React.createElement("div", { className: "toolbar gut" }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 200, flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Drawing folder"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, dr ? dr.folder : "No folder chosen"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--fg-2)" } }, s.drawBusy || (dr ? (dr.nFiles != null ? dr.nFiles + " PDF" + (dr.nFiles === 1 ? "" : "s") + " \xB7 " : "") + dr.pages + " pages \xB7 " + Object.keys(dr.hits).length + " keynotes found \xB7 read " + fmtWhen(dr.at) : "Pick the folder that holds the drawing PDFs"))), /* @__PURE__ */ React.createElement("div", { className: "search", style: { maxWidth: 420 } }, /* @__PURE__ */ React.createElement(SearchIcon, null), /* @__PURE__ */ React.createElement("input", { id: "draw-search", className: "field", value: s.drawQuery || "", onChange: (e) => this.setState({ drawQuery: e.target.value }), placeholder: "Search keys, keynote text or sheets" })), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8 } }, /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: this.chooseDrawings }, "Choose folder"), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: this.rescanDrawings, disabled: !dr || !!s.drawBusy }, "Rescan"))), !!dr && !D.sp && /* @__PURE__ */ React.createElement("div", { className: "row", style: { padding: "8px 12px", background: "var(--cream)", fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 200 } }, "Choose the spec folder to find drawing keynotes that aren't in the specifications."), /* @__PURE__ */ React.createElement("button", { className: "mini", onClick: this.chooseSpecFolder }, "Choose spec folder")), /* @__PURE__ */ React.createElement("div", { className: "tabs" }, dr ? [tab("nospec", "Not in Spec"), tab("nokn", "Not in Keynotes"), tab("ok", "Matched"), tab("all", "All")] : null, hasNumHits && /* @__PURE__ */ React.createElement("label", { className: "toggle", style: { marginLeft: "auto", paddingBottom: 10, fontSize: 13, alignItems: "center" } }, /* @__PURE__ */ React.createElement("input", { id: "draw-nums", type: "checkbox", checked: !!s.drawNums, onChange: () => this.setState((st) => ({ drawNums: !st.drawNums })), style: { marginTop: 0 } }), "Include numbered notes"))), dr && W >= 760 && /* @__PURE__ */ React.createElement("div", { className: "thead gut", style: { gridTemplateColumns: cols } }, this.renderSortHeads([["key", "Key"], ["kn", "Keynote"], ["spec", "Spec"], ["sheets", "Sheets"], ["status", "Status"]], D.sk, D.sd, (id) => this.setState((st) => ({ drawSort: id, drawDir: (st.drawSort || "key") === id && st.drawDir !== "desc" ? "desc" : "asc" })))), /* @__PURE__ */ React.createElement("div", { className: "scroll" }, dr ? D.list.length ? D.list.map((r) => {
+      const k = r.k, chips = [];
+      r.noSpec && chips.push(["Not in Spec", ...C.ink]), r.noKn && chips.push(["Not in Keynotes", ...C.gold]), chips.length || chips.push(["Matched", ...C.neutral]);
+      const specOk = r.sec && D.sp && D.specMap[r.sec];
+      return /* @__PURE__ */ React.createElement("div", { key: k, className: "cmprow gut", style: { gridTemplateColumns: cols, cursor: r.it ? "pointer" : "default" }, onClick: () => {
+        items[k] && this.select(k);
+      } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: r.it ? 400 : 500, color: r.it ? "var(--fg)" : "var(--muted)", overflowWrap: "anywhere" } }, r.it ? r.it.text || "(no text)" : "Not in keynote file"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: specOk ? "var(--fg)" : "var(--muted)", overflowWrap: "anywhere" } }, r.sec ? D.sp ? D.specMap[r.sec] || "No spec file found" : "Spec folder not chosen" : "General note"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--fg-2)" } }, r.sec || "")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--fg-2)", overflowWrap: "anywhere" } }, r.sheets.slice(0, 8).join(", ") + (r.sheets.length > 8 ? " +" + (r.sheets.length - 8) + " more" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } }, chips.map((c) => /* @__PURE__ */ React.createElement(Chip, { key: c[0], bg: c[1], fg: c[2] }, c[0])), r.noKn && !!r.sec && /* @__PURE__ */ React.createElement("button", { className: "mini", onClick: (e) => {
+        e.stopPropagation(), this.createFromDrawing(k);
+      } }, "Create keynote")));
+    }) : /* @__PURE__ */ React.createElement("div", { className: "gut", style: { paddingBlock: 48, color: "var(--fg-2)" } }, "Nothing in this view.") : /* @__PURE__ */ React.createElement("div", { className: "intro gut" }, /* @__PURE__ */ React.createElement("h2", null, "Check the drawings against keynotes and specs"), /* @__PURE__ */ React.createElement("div", { className: "rule" }), /* @__PURE__ */ React.createElement("div", null, "Choose the folder that holds the drawing PDFs. Every PDF in it, including subfolders, is read, and each keynote tag on the drawings, such as ", /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 500 } }, "08 7100.A1"), ", is checked against the keynote file and the spec folder."), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)", fontSize: 13 } }, "PDFs exported from Revit work best. Scanned drawings have no readable text. Files are read on this computer and never uploaded."), /* @__PURE__ */ React.createElement(Btn, { onClick: this.chooseDrawings }, "Choose drawing folder"))));
+  }
+  render() {
+    const s = this.state, P = s.prefs, items = s.items, base = s.base, page = s.page || "keynotes", keys = Object.keys(items), kids = {}, roots = [];
+    keys.forEach((k) => {
+      const p = items[k].parent;
+      p && items[p] && p !== k ? (kids[p] = kids[p] || []).push(k) : roots.push(k);
+    }), roots.sort((a, b) => {
+      const o = s.order, ia = o.indexOf(a), ib = o.indexOf(b);
+      return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || natCmp(a, b);
+    });
+    const reach = {}, mark = (k) => {
+      reach[k] || (reach[k] = 1, (kids[k] || []).forEach(mark));
+    };
+    roots.forEach(mark);
+    const desc = {}, cnt = (k) => desc[k] != null ? desc[k] : desc[k] = (kids[k] || []).reduce((a, c) => a + 1 + cnt(c), 0);
+    roots.forEach(cnt);
+    const st = (k) => base[k] ? eq(base[k], items[k]) ? "" : "edited" : "added", issue = (k) => {
+      const it = items[k];
+      return it.parent && !items[it.parent] ? "Parent " + it.parent + " not found" : reach[k] ? it.parent && !it.text.trim() ? "Empty keynote text" : "" : "Circular parent reference";
+    }, issueKeys = keys.filter(issue), changedKeys = keys.filter(st), changeList = [.../* @__PURE__ */ new Set([...keys, ...Object.keys(base)])].filter((k) => !eq(items[k], base[k])).sort(natCmp), q = s.query.trim().toLowerCase(), inScope = (k) => !s.scope || k === s.scope || this.isDesc(k, s.scope);
+    let list = [], show = null;
+    const matches = q ? keys.filter((k) => inScope(k) && (k.toLowerCase().includes(q) || items[k].text.toLowerCase().includes(q))) : s.view === "changed" ? changedKeys.filter(inScope) : s.view === "issues" ? issueKeys.filter(inScope) : null;
+    matches && (show = /* @__PURE__ */ new Set(), matches.forEach((k) => {
+      let c = k, n = 0;
+      for (; c && items[c] && !show.has(c) && n++ < 50; )
+        show.add(c), c = items[c].parent;
+    }));
+    const dfs = (k, d2) => {
+      show && !show.has(k) || (list.push([k, d2]), s.collapsed[k] || (kids[k] || []).slice().sort(natCmp).forEach((c) => dfs(c, d2 + 1)));
+    };
+    if (page === "keynotes" && ((s.scope && items[s.scope] ? [s.scope] : roots.slice().sort(natCmp)).forEach((k) => dfs(k, 0)), show)) {
+      const seen = new Set(list.map((x) => x[0]));
+      [...show].filter((k) => !seen.has(k)).sort(natCmp).forEach((k) => list.push([k, 0]));
+    }
+    const lvlOf = (k) => {
+      let n = 0, p = items[k].parent;
+      for (; p && items[p] && n < 20; )
+        n++, p = items[p].parent;
+      return n;
+    }, LVL = ["var(--plum)", "var(--plum-light)", "var(--fg)", "var(--muted)"], topRoots = roots.filter((k) => !items[k].parent), d = s.draft, err = d ? this.validate() : "", orig = d && !d.isNew ? items[d.origKey] : null, dirty = d && (d.isNew || !orig || d.key.trim() !== d.origKey || this.finalText(d.text) !== orig.text || d.parent !== orig.parent), parentOpts = d ? keys.filter((k) => k !== d.origKey && !(d.origKey && this.isDesc(k, d.origKey))).sort(natCmp) : [], nCh = changeList.length, linked = s.linked && !!this.handle, conf = s.conflicts || [], t = s.toast, cd = s.confirmDel, sync = s.lastSync && linked ? " \xB7 synced " + new Date(s.lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "", W = s.w || 1400, wide = W >= 1200, narrow = W < 760, onSpec = page !== "keynotes", layoutCols = onSpec ? "minmax(0,1fr)" : wide ? "minmax(170px,230px) minmax(0,1fr) minmax(300px,380px)" : narrow ? "minmax(0,1fr)" : "minmax(160px,200px) minmax(0,1fr)", asideStatic = wide && !onSpec, showAside = asideStatic || !!d, rowCols = narrow ? "minmax(90px,130px) minmax(0,1fr)" : "minmax(110px,180px) minmax(0,1fr) 72px", rowPad = P.density === "compact" ? "6px" : "11px", S = this.specData(s, items, keys), D = this.drawData(s, items), newKeynote = () => {
+      const sel = s.sel && items[s.sel] ? s.sel : null;
+      if (sel && items[sel].parent) return this.startNew(items[sel].parent, "", sel);
+      this.startNew(sel || s.scope || "");
+    }, vtab = (id, label) => /* @__PURE__ */ React.createElement("button", { key: id, className: "tab" + (s.view === id && !q ? " on" : ""), onClick: () => this.setState({ view: id, query: "" }) }, label), rawText = d ? this.finalText(d.text) || "TEXT" : "";
+    return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("input", { type: "file", accept: ".txt,text/plain", ref: this.fileRef, onChange: this.onFilePicked, style: { display: "none" } }), /* @__PURE__ */ React.createElement("header", { className: "hdr gut" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } }, /* @__PURE__ */ React.createElement("div", { className: "eyebrow" }, "LJC Design & Engineering"), /* @__PURE__ */ React.createElement("div", { className: "name" }, "Keynote Manager", /* @__PURE__ */ React.createElement("span", null, "Updated Oct 28, 2026"))), /* @__PURE__ */ React.createElement("nav", { className: "pagetabs" }, [["keynotes", "Keynotes"], ["specs", "Spec check"], ["drawings", "Drawing check"]].map(([id, label]) => /* @__PURE__ */ React.createElement("button", { key: id, className: "pagetab" + (page === id ? " on" : ""), onClick: () => this.setState({ page: id }) }, label))), /* @__PURE__ */ React.createElement("div", { className: "vsep" }), /* @__PURE__ */ React.createElement("div", { className: "fileinfo" }, /* @__PURE__ */ React.createElement("div", { className: "fn" }, s.fileName || "No file"), /* @__PURE__ */ React.createElement("div", { className: "fm" }, keys.length, " keynotes \xB7 ", ENC_LABEL[s.enc] || s.enc, " \xB7 ", linked ? "Linked, publishes straight to the file" : "Not linked, publish downloads a copy", sync)), /* @__PURE__ */ React.createElement("div", { className: "hbtns" }, /* @__PURE__ */ React.createElement("button", { className: "hbtn", onClick: this.openFile }, "Open file"), linked && /* @__PURE__ */ React.createElement("button", { className: "hbtn", onClick: this.refresh }, "Refresh"), /* @__PURE__ */ React.createElement("button", { className: "hbtn", onClick: () => this.setState({ showPrefs: !0 }), "aria-label": "Settings" }, "Settings"), /* @__PURE__ */ React.createElement(Btn, { variant: "inverse", onClick: this.publish, disabled: linked && nCh === 0 && !s.remoteChanged }, linked ? nCh ? "Publish " + nCh + " change" + (nCh === 1 ? "" : "s") : "Published" : "Download .txt"))), /* @__PURE__ */ React.createElement("div", null, !!s.relink && /* @__PURE__ */ React.createElement("div", { className: "banner gut", style: { background: "var(--sel)" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Linked to ", s.relink, "."), " Your browser needs one click to allow editing again."), /* @__PURE__ */ React.createElement(Btn, { onClick: this.reconnect }, "Reconnect")), s.remoteChanged && /* @__PURE__ */ React.createElement("div", { className: "banner gut", style: { background: "var(--warn-bg)", borderBottomColor: "var(--gold)" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "The file was updated by someone else."), " Refresh to pull their changes in. Your unpublished edits are kept."), /* @__PURE__ */ React.createElement(Btn, { onClick: this.refresh }, "Refresh"))), /* @__PURE__ */ React.createElement("div", { className: "work", style: { gridTemplateColumns: layoutCols } }, !narrow && !onSpec && /* @__PURE__ */ React.createElement("aside", { className: "side" }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Divisions"), [{ key: "All keynotes", text: "Every division", count: keys.length, active: !s.scope, onClick: () => this.setState({ scope: "" }) }].concat(topRoots.map((k) => ({ key: k, text: items[k].text, count: desc[k], active: s.scope === k, onClick: () => this.setState({ scope: k, view: "all" }) }))).map((x) => /* @__PURE__ */ React.createElement("button", { key: x.key, className: "divbtn" + (x.active ? " on" : ""), onClick: x.onClick }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", flexDirection: "column", minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { className: "k" }, x.key), /* @__PURE__ */ React.createElement("span", { className: "t" }, x.text)), /* @__PURE__ */ React.createElement("span", { className: "c" }, x.count)))), page === "keynotes" && /* @__PURE__ */ React.createElement("main", { className: "main" }, /* @__PURE__ */ React.createElement("div", { className: "toolbar gut" }, /* @__PURE__ */ React.createElement("div", { className: "row" }, narrow && /* @__PURE__ */ React.createElement("select", { id: "scope", className: "field", value: s.scope, onChange: (e) => this.setState({ scope: e.target.value, view: "all" }), style: { maxWidth: 200, width: "auto" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All divisions"), topRoots.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k + "  " + items[k].text))), /* @__PURE__ */ React.createElement("div", { className: "search" }, /* @__PURE__ */ React.createElement(SearchIcon, null), /* @__PURE__ */ React.createElement("input", { id: "kn-search", ref: this.searchRef, className: "field", value: s.query, onChange: (e) => this.setState({ query: e.target.value }), placeholder: "Search keys or keynote text   ( / )" })), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: newKeynote }, "New keynote")), /* @__PURE__ */ React.createElement("div", { className: "tabs" }, vtab("all", "All"), vtab("changed", "Changed \xB7 " + changedKeys.length), vtab("issues", "Issues \xB7 " + issueKeys.length), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement("div", { className: "note" }, q ? list.length + " match" + (list.length === 1 ? "" : "es") : P.sortOnWrite ? "File is written in key order" : "File keeps its line order \xB7 new lines go next to their siblings"))), /* @__PURE__ */ React.createElement("div", { className: "thead gut", style: { gridTemplateColumns: rowCols } }, /* @__PURE__ */ React.createElement("div", null, "Key"), /* @__PURE__ */ React.createElement("div", null, "Keynote text"), !narrow && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, "Status")), /* @__PURE__ */ React.createElement("div", { className: "scroll", ref: this.listRef }, list.map(([k, dep]) => {
+      const it = items[k], stt = st(k), iss = issue(k), sel = s.sel === k || d && d.origKey === k, color = P.colorByLevel === !1 ? "var(--fg)" : LVL[Math.min(lvlOf(k), 3)], weight = it.parent ? kids[k] ? 500 : 400 : 700;
+      return /* @__PURE__ */ React.createElement("div", { key: k, "data-key": k, className: "kn gut" + (sel ? " on" : ""), style: { gridTemplateColumns: rowCols, paddingBlock: rowPad }, onClick: () => this.select(k) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, paddingLeft: dep * 22, minWidth: 0 } }, kids[k] ? /* @__PURE__ */ React.createElement("button", { className: "caret", "aria-label": "Expand or collapse", onClick: (e) => {
+        e.stopPropagation(), this.setState((x) => ({ collapsed: { ...x.collapsed, [k]: !x.collapsed[k] } }));
+      } }, /* @__PURE__ */ React.createElement("svg", { width: "10", height: "10", viewBox: "0 0 10 10", fill: "none", strokeWidth: "1.6", style: { transform: s.collapsed[k] ? "rotate(-90deg)" : "none" } }, /* @__PURE__ */ React.createElement("path", { d: "M2 3.5l3 3 3-3" }))) : /* @__PURE__ */ React.createElement("span", { style: { flex: "none", width: 20 } }), /* @__PURE__ */ React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: weight, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, /* @__PURE__ */ React.createElement(Hl, { str: k, q }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: weight, color, overflowWrap: "anywhere" } }, /* @__PURE__ */ React.createElement(Hl, { str: it.text, q })), !!iss && /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "dot" }), iss)), !narrow && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end" } }, stt && /* @__PURE__ */ React.createElement(Chip, { bg: stt === "added" ? "var(--gold)" : "var(--sel)", fg: stt === "added" ? "var(--on-gold)" : "var(--plum)" }, stt === "added" ? "Added" : "Edited")));
+    }), !list.length && /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement("b", null, q ? "No keynotes match \u201C" + s.query.trim() + "\u201D" : s.view === "changed" ? "No unpublished changes" : s.view === "issues" ? "No issues found" : "No keynotes yet"), /* @__PURE__ */ React.createElement("div", null, q ? "Try a key number or a shorter word." : s.view === "issues" ? "Every keynote has a valid parent and text." : "Open a keynote file to start.")))), page === "specs" && this.renderSpecPage(S, W), page === "drawings" && this.renderDrawPage(D, W), showAside && /* @__PURE__ */ React.createElement("aside", { className: "aside", style: { display: "flex", position: asideStatic ? "static" : "absolute", width: asideStatic ? "auto" : 380, boxShadow: asideStatic ? "none" : "var(--shadow-lg)" } }, d ? /* @__PURE__ */ React.createElement(React.Fragment, null, (onSpec || !asideStatic) && /* @__PURE__ */ React.createElement("div", { className: "closebar" }, /* @__PURE__ */ React.createElement("span", { className: "eyebrow", style: { fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" } }, page === "drawings" ? "Editing from Drawing check" : page === "specs" ? "Editing from Spec check" : "Editor"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-inverse", onClick: () => this.setState({ draft: null, sel: null }) }, "Close")), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, d.isNew ? d.parent ? "New keynote" : "New category" : "Edit keynote"), /* @__PURE__ */ React.createElement("div", { className: "rule s" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700, lineHeight: "25px", overflowWrap: "anywhere" } }, d.key.trim() || "Untitled")), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "flabel" }, "Key"), /* @__PURE__ */ React.createElement("input", { id: "draft-key", className: "field", style: { fontVariantNumeric: "tabular-nums" }, value: d.key, onChange: (e) => {
+      const v = e.target.value.replace(/[\t\r\n]/g, "");
+      this.setState((x) => ({ draft: { ...x.draft, key: v } }));
+    } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "flabel" }, "Keynote text"), /* @__PURE__ */ React.createElement("textarea", { id: "draft-text", className: "field", rows: "4", value: d.text, onChange: (e) => {
+      const v = e.target.value;
+      this.setState((x) => ({ draft: { ...x.draft, text: v } }));
+    } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, P.forceUppercase ? "Tabs and line breaks are removed. Saved in uppercase." : "Tabs and line breaks are removed on save.")), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "flabel" }, "Parent"), /* @__PURE__ */ React.createElement("select", { id: "draft-parent", className: "field", value: d.parent, onChange: (e) => {
+      const v = e.target.value;
+      this.setState((x) => ({ draft: { ...x.draft, parent: v } }));
+    } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "None (top-level category)"), parentOpts.map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, k + "   " + (items[k].text.length > 44 ? items[k].text.slice(0, 44) + "\u2026" : items[k].text))))), P.showRawLine !== !1 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "flabel" }, "Line written to file"), /* @__PURE__ */ React.createElement("div", { className: "raw" }, /* @__PURE__ */ React.createElement("span", null, d.key.trim() || "KEY"), /* @__PURE__ */ React.createElement("span", { className: "tabtok" }, "TAB"), /* @__PURE__ */ React.createElement("span", null, rawText), !!d.parent && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "tabtok" }, "TAB"), /* @__PURE__ */ React.createElement("span", null, d.parent)))), !!(err && dirty) && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13 } }, /* @__PURE__ */ React.createElement("span", { className: "dot" }), err), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8 } }, /* @__PURE__ */ React.createElement(Btn, { onClick: this.saveDraft, disabled: !dirty || !!err }, d.isNew ? "Add" : "Save"), /* @__PURE__ */ React.createElement(Btn, { variant: "ghost", onClick: () => this.setState({ draft: null, sel: null }) }, "Close")), !d.isNew && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, paddingTop: 12, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: () => this.startNew(d.origKey) }, "Add child"), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: () => this.startNew(items[d.origKey].parent, items[d.origKey].text) }, "Duplicate"), /* @__PURE__ */ React.createElement(Btn, { variant: "ghost", onClick: this.askDelete }, "Delete")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingTop: 12, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("span", { className: "flabel" }, "Spec check"), !!S.sp && S.rel.map(({ sec, why }) => {
+      const r = S.rows[sec], m = S.META[r.status], ft = r.files.find((x) => x.title) || r.files[0], act = S.actFor(r);
+      return /* @__PURE__ */ React.createElement("div", { key: sec, className: "card alt" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("strong", { style: { fontVariantNumeric: "tabular-nums" } }, sec), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--fg-2)", flex: 1 } }, why), /* @__PURE__ */ React.createElement(Chip, { bg: m[1], fg: m[2] }, m[0])), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, color: ft ? "var(--fg)" : "var(--muted)", overflowWrap: "anywhere" } }, ft ? ft.title || ft.name : "No spec file found"), r.files.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--fg-2)", overflowWrap: "anywhere" } }, r.files.map((x) => x.path).join(" \xB7 ")), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 12 } }, act && /* @__PURE__ */ React.createElement("button", { className: "mini", onClick: act[1] }, act[0]), /* @__PURE__ */ React.createElement("button", { className: "link", onClick: () => this.setState({ page: "specs", specFilter: "all", specQuery: sec }) }, "View in Spec check")));
+    }), !!S.sp && !S.rel.length && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--fg-2)" } }, "No spec section is tied to this keynote."), !S.sp && /* @__PURE__ */ React.createElement("div", { className: "row", style: { fontSize: 13, color: "var(--fg-2)" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 160 } }, "Choose the spec folder to compare this keynote."), /* @__PURE__ */ React.createElement("button", { className: "mini", onClick: this.chooseSpecFolder }, "Choose folder")))))) : /* @__PURE__ */ React.createElement("div", { className: "panel", style: { gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Editor"), /* @__PURE__ */ React.createElement("div", { className: "rule s" }), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)" } }, "Select a keynote to edit it, or add a new one. Changes stay on your screen until you publish."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", marginTop: 8, fontSize: 12, color: "var(--fg-2)" } }, /* @__PURE__ */ React.createElement("strong", { style: { color: "var(--fg)" } }, "/"), /* @__PURE__ */ React.createElement("span", null, "Search"), /* @__PURE__ */ React.createElement("strong", { style: { color: "var(--fg)" } }, "Ctrl S"), /* @__PURE__ */ React.createElement("span", null, "Save keynote"), /* @__PURE__ */ React.createElement("strong", { style: { color: "var(--fg)" } }, "Esc"), /* @__PURE__ */ React.createElement("span", null, "Close editor"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12, padding: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { flex: 1 } }, "Unpublished changes \xB7 ", nCh), nCh > 0 && /* @__PURE__ */ React.createElement("button", { className: "link", onClick: () => this.setState((x) => ({ items: clone(x.base), draft: null, sel: null })) }, "Revert all")), changeList.map((k) => {
+      const m = items[k], b = base[k], kind = b ? m ? "Edited" : "Removed" : "Added", summary = kind === "Removed" ? b.text : kind === "Added" ? m.text : b.text !== m.text ? b.text + "  \u2192  " + m.text : "Moved under " + (m.parent || "top level"), c = kind === "Added" ? C.gold : kind === "Removed" ? C.ink : C.plum;
+      return /* @__PURE__ */ React.createElement("div", { key: k, className: "card", style: { gap: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(Chip, { bg: c[0], fg: c[1] }, kind), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+        items[k] && this.reveal(k);
+      }, style: { flex: 1, textAlign: "left", border: 0, background: "transparent", padding: 0, fontWeight: 700, fontVariantNumeric: "tabular-nums", cursor: "pointer" } }, k), /* @__PURE__ */ React.createElement("button", { className: "link", onClick: () => this.revert(k) }, "Revert")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--fg-2)", overflowWrap: "anywhere" } }, summary));
+    }), !nCh && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--fg-2)" } }, "Nothing waiting. Your view matches the file as of the last open or download."), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, paddingTop: 12, borderTop: "1px solid var(--line-strong)", fontSize: 12, color: "var(--fg-2)" } }, linked ? "Publishing re-reads the file, merges in anyone else\u2019s edits, then writes. Only the lines you changed are touched." : "Use Open file in Chrome or Edge to link the shared keynote file. Publish then writes to it directly and merges other people\u2019s edits. Without a link, Download .txt saves an updated copy.")))), conf.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "overlay" }, /* @__PURE__ */ React.createElement("div", { className: "dialog", style: { maxWidth: 640 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Merge"), /* @__PURE__ */ React.createElement("div", { className: "rule s" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700, lineHeight: "25px" } }, conf.length, " keynote", conf.length === 1 ? "" : "s", " changed by both of you"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)" } }, "Someone else changed these keynotes since you last refreshed. Choose which version to keep for each.")), conf.map((c, i) => {
+      const pick = (v) => () => this.setState((x) => ({ conflicts: x.conflicts.map((y, j) => j === i ? { ...y, pick: v } : y) })), on = c.pick === "mine";
+      return /* @__PURE__ */ React.createElement("div", { key: c.key, style: { display: "flex", flexDirection: "column", gap: 8, paddingTop: 12, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontVariantNumeric: "tabular-nums" } }, c.key), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "pick" + (on ? " on" : ""), onClick: pick("mine") }, /* @__PURE__ */ React.createElement("span", { className: "flabel", style: { fontSize: 10 } }, "Yours"), /* @__PURE__ */ React.createElement("span", null, fmtVal(c.mine))), /* @__PURE__ */ React.createElement("button", { className: "pick" + (on ? "" : " on"), onClick: pick("theirs") }, /* @__PURE__ */ React.createElement("span", { className: "flabel", style: { fontSize: 10 } }, "In the file"), /* @__PURE__ */ React.createElement("span", null, fmtVal(c.theirs)))));
+    }), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(Btn, { variant: "ghost", onClick: this.cancelMerge }, "Cancel"), /* @__PURE__ */ React.createElement(Btn, { onClick: this.resolveConflicts }, "Apply choices")))), !!cd && /* @__PURE__ */ React.createElement("div", { className: "overlay", onClick: (e) => {
+      e.target === e.currentTarget && this.setState({ confirmDel: null });
+    } }, /* @__PURE__ */ React.createElement("div", { className: "dialog", style: { maxWidth: 480 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700, lineHeight: "25px" } }, "Delete ", cd.key, "?"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)" } }, "It has ", cd.count, " keynote", cd.count === 1 ? "" : "s", " beneath it. Delete them too, or keep them and move them up one level?"), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(Btn, { variant: "ghost", onClick: () => this.setState({ confirmDel: null }) }, "Cancel"), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: () => this.doDelete(cd.key, !1) }, "Delete, keep children"), /* @__PURE__ */ React.createElement(Btn, { onClick: () => this.doDelete(cd.key, !0) }, "Delete all")))), s.exportText != null && /* @__PURE__ */ React.createElement("div", { className: "overlay", onClick: (e) => {
+      e.target === e.currentTarget && this.setState({ exportText: null });
+    } }, /* @__PURE__ */ React.createElement("div", { className: "dialog", style: { maxWidth: 720 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Export"), /* @__PURE__ */ React.createElement("div", { className: "rule s" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700, lineHeight: "25px" } }, "Copy the keynote file"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--fg-2)" } }, "The download didn't start. Copy the text below, paste it into ", s.fileName || "the keynote file", " in Notepad, and save it with the ", ENC_LABEL[s.enc] || s.enc, " encoding.")), /* @__PURE__ */ React.createElement("textarea", { id: "export-text", className: "field", readOnly: !0, rows: "14", value: s.exportText, style: { fontFamily: "var(--font-mono)", fontSize: 12, whiteSpace: "pre", overflow: "auto" } }), /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(Btn, { variant: "ghost", onClick: () => this.setState({ exportText: null }) }, "Close"), /* @__PURE__ */ React.createElement(Btn, { variant: "outline", onClick: this.markExported }, "Mark as published"), /* @__PURE__ */ React.createElement(Btn, { onClick: this.copyExport }, "Copy text")))), s.showPrefs && /* @__PURE__ */ React.createElement("div", { className: "overlay", onClick: (e) => {
+      e.target === e.currentTarget && this.setState({ showPrefs: !1 });
+    } }, /* @__PURE__ */ React.createElement("div", { className: "dialog", style: { maxWidth: 440 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label" }, "Settings"), /* @__PURE__ */ React.createElement("div", { className: "rule s" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700, lineHeight: "25px" } }, "Display and file options")), /* @__PURE__ */ React.createElement("label", { className: "toggle" }, /* @__PURE__ */ React.createElement("input", { id: "p-compact", type: "checkbox", checked: P.density === "compact", onChange: (e) => this.setPref("density", e.target.checked ? "compact" : "comfortable") }), /* @__PURE__ */ React.createElement("span", null, "Compact rows")), /* @__PURE__ */ React.createElement("label", { className: "toggle" }, /* @__PURE__ */ React.createElement("input", { id: "p-color", type: "checkbox", checked: P.colorByLevel !== !1, onChange: (e) => this.setPref("colorByLevel", e.target.checked) }), /* @__PURE__ */ React.createElement("span", null, "Color keynotes by level")), /* @__PURE__ */ React.createElement("label", { className: "toggle" }, /* @__PURE__ */ React.createElement("input", { id: "p-raw", type: "checkbox", checked: P.showRawLine !== !1, onChange: (e) => this.setPref("showRawLine", e.target.checked) }), /* @__PURE__ */ React.createElement("span", null, "Show the line written to file in the editor")), /* @__PURE__ */ React.createElement("label", { className: "toggle" }, /* @__PURE__ */ React.createElement("input", { id: "p-upper", type: "checkbox", checked: !!P.forceUppercase, onChange: (e) => this.setPref("forceUppercase", e.target.checked) }), /* @__PURE__ */ React.createElement("span", null, "Save keynote text in uppercase")), /* @__PURE__ */ React.createElement("label", { className: "toggle" }, /* @__PURE__ */ React.createElement("input", { id: "p-sort", type: "checkbox", checked: !!P.sortOnWrite, onChange: (e) => this.setPref("sortOnWrite", e.target.checked) }), /* @__PURE__ */ React.createElement("span", null, "Write the file in key order", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "Off keeps the file's existing line order and adds new lines next to their siblings."))), /* @__PURE__ */ React.createElement("div", { className: "row", style: { justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(Btn, { onClick: () => this.setState({ showPrefs: !1 }) }, "Done")))), t && /* @__PURE__ */ React.createElement("div", { className: "toast" }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, flex: "none", background: t.tone === "error" ? "var(--red)" : t.tone === "warn" ? "#F7CF7A" : "#8B62A9" } }), t.msg));
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
+</script>
+
+</body>
+</html>
