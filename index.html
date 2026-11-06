@@ -1,5 +1,8 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>LJC Keynote Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: brand band header + three-pane workspace (divisions · keynote list · editor), full-height app */
@@ -16,28 +19,15 @@
   --btn-bg: #4E2751; --btn-bg-hover: #3F1F42; --btn-fg: #FFFFFF;
   --mark: #F7CF7A; --scrim: rgba(33,33,33,0.55); --shadow-md: 0 6px 18px rgba(33,33,33,0.12); --shadow-lg: 0 18px 44px rgba(33,33,33,0.18);
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #141115; --surface: #1C181D; --surface-2: #241F25; --tint: #211A23; --sel: #35263A;
-  --line: #2F2931; --line-strong: #4A424D;
-  --fg: #EDE9EE; --fg-2: #C2BAC4; --muted: #958D97;
-  --plum: #C7A3DB; --plum-dark: #DCC3EA; --plum-light: #A07CC0;
-  --band: #351A38; --band-fg: #EAEAEA;
-  --gold: #F7CF7A; --on-gold: #212121; --cream: #3C3220; --warn-bg: #2D2618; --red: #F4646B;
-  --chip-ink-bg: #EDE9EE; --chip-ink-fg: #1C181D; --chip-n-bg: #342F36; --chip-n-fg: #C8C1CA;
-  --btn-bg: #8B62A9; --btn-bg-hover: #9C76BA; --btn-fg: #FFFFFF;
-  --mark: #8A6A1F; --scrim: rgba(0,0,0,0.6); --shadow-md: 0 6px 18px rgba(0,0,0,0.4); --shadow-lg: 0 18px 44px rgba(0,0,0,0.5);
-  color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #141115; --surface: #1C181D; --surface-2: #241F25; --tint: #211A23; --sel: #35263A;
-  --line: #2F2931; --line-strong: #4A424D;
-  --fg: #EDE9EE; --fg-2: #C2BAC4; --muted: #958D97;
-  --plum: #C7A3DB; --plum-dark: #DCC3EA; --plum-light: #A07CC0;
-  --band: #351A38; --band-fg: #EAEAEA;
-  --gold: #F7CF7A; --on-gold: #212121; --cream: #3C3220; --warn-bg: #2D2618; --red: #F4646B;
-  --chip-ink-bg: #EDE9EE; --chip-ink-fg: #1C181D; --chip-n-bg: #342F36; --chip-n-fg: #C8C1CA;
-  --btn-bg: #8B62A9; --btn-bg-hover: #9C76BA; --btn-fg: #FFFFFF;
-  --mark: #8A6A1F; --scrim: rgba(0,0,0,0.6); --shadow-md: 0 6px 18px rgba(0,0,0,0.4); --shadow-lg: 0 18px 44px rgba(0,0,0,0.5);
-  color-scheme: dark }
+/* Always light: no dark-mode overrides. */
+:root, :root[data-theme], html, body { color-scheme: light !important; }
+/* Light scrollbars everywhere */
+* { scrollbar-color: #C8C8C8 #F5F5F4; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; background: #F5F5F4; }
+::-webkit-scrollbar-track { background: #F5F5F4; }
+::-webkit-scrollbar-thumb { background: #C8C8C8; border: 2px solid #F5F5F4; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #A8A8A8; }
+::-webkit-scrollbar-corner { background: #F5F5F4; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -147,6 +137,58 @@ mark { background: var(--mark); color: inherit; padding: 0; }
 .toggle input { accent-color: var(--plum); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
 textarea.field { resize: vertical; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* ===== Style A: soft modern (rounded shapes, pills, Manrope) ===== */
+:root { --font-brand: "Manrope", "Helvetica Neue", Helvetica, Arial, sans-serif; --r-sm: 8px; --r-md: 10px; --r-lg: 14px; }
+body { font-weight: 500; }
+.hdr .name { font-weight: 800; letter-spacing: -0.01em; }
+.pagetabs { align-self: center; margin: 0; gap: 6px; background: rgba(255,255,255,0.10); padding: 4px; border-radius: 999px; }
+.pagetab { padding: 6px 16px; border-radius: 999px; font-weight: 600; }
+.pagetab:hover { background: rgba(255,255,255,0.14); }
+.pagetab.on { background: var(--gold); color: var(--on-gold); box-shadow: none; font-weight: 700; }
+.pagetab.on:hover { background: var(--gold); }
+.hbtn { border-radius: var(--r-md); }
+.btn { border-radius: var(--r-md); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 700; padding: 8px 16px; }
+.mini { border-radius: var(--r-sm); font-weight: 600; }
+.field { border-radius: var(--r-md); }
+.search .field { border-color: transparent; }
+.tabs { gap: 6px; padding-bottom: 10px; align-items: center; }
+.tab { padding: 6px 14px; border-radius: 999px; font-weight: 600; color: var(--fg-2); }
+.tab:hover { background: var(--surface-2); }
+.tab.on { background: var(--sel); color: var(--plum); box-shadow: none; font-weight: 700; }
+.note { padding-bottom: 0; }
+.chip { border-radius: 999px; text-transform: none; letter-spacing: 0.01em; font-size: 11px; padding: 3px 10px; }
+.side { padding: 16px 0; }
+.divbtn { border-radius: var(--r-md); margin: 2px 10px; width: calc(100% - 20px); padding: 9px 12px; }
+.divbtn.on { box-shadow: none; }
+.kn.on { box-shadow: inset 4px 0 0 var(--plum); }
+.caret { border-radius: 6px; }
+.dot { border-radius: 50%; }
+.thead { border-bottom: 0; }
+.aside { padding: 12px; gap: 12px; }
+.aside > .panel, .aside > div:last-child { border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+.panel { border-bottom: 0; }
+.closebar { border-radius: var(--r-lg); }
+.card { border-radius: var(--r-md); }
+.raw { border-radius: var(--r-md); }
+.tabtok { border-radius: 6px; }
+.rule { border-radius: 999px; height: 3px; }
+.dialog { border-radius: 18px; }
+.pick { border-radius: var(--r-md); }
+.toast { border-radius: var(--r-lg); }
+.cmprow { border-bottom-color: var(--surface-2); }
+.banner { border-bottom: 0; }
+
+/* Spec Check status tints (soft row wash + colored key) */
+:root { --st-red-bg: #FEF4F4; --st-red-hover: #FCEBEC; --st-red-fg: #A3242B; --st-red-chip: #FDE7E8;
+        --st-gold-bg: #FEFAF0; --st-gold-hover: #FCF3DE; --st-gold-fg: #7A5A12; --st-gold-chip: #FDF1D6; }
+.cmprow.st-nospec { background: var(--st-red-bg); }
+.cmprow.st-nospec:hover { background: var(--st-red-hover); }
+.cmprow.st-nokn { background: var(--st-gold-bg); }
+.cmprow.st-nokn:hover { background: var(--st-gold-hover); }
+.cmprow.st-nospec .stkey { color: var(--st-red-fg); }
+.cmprow.st-nokn .stkey { color: var(--st-gold-fg); }
+.cmprow.st-ok .stkey { color: var(--plum); }
 </style>
 
 <div id="root"></div>
@@ -347,6 +389,42 @@ function parseSpec(name) {
 }
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 const KN_RE = /(?<!\d)(\d{2})\s?(\d{2})\s?(\d{2})\s?\.\s?([A-Za-z0-9]{1,4})(?![A-Za-z0-9])/g;
+// View titles: a detail number just left of a scale line ("1/8" = 1'-0"", "1 : 100", "NTS"). Coordinates are viewport (y grows downward).
+const SCALE_RE = /(=\s*1\s*['’]\s*-?\s*0|['’]\s*-\s*0\s*["”]|\b1\s*:\s*\d{1,4}\b|\bN\.?T\.?S\b|NOT TO SCALE|^SCALE\b)/i;
+const VNUM_RE = /^[A-Z]{0,2}\d{1,3}[A-Z]?$/;
+// Revit view title bubble: view number on top, sheet number (e.g. A3.510) directly below it.
+const SHEET_RE = /^[A-Z]{1,3}[-.]?\d{1,4}(?:[.\-]\d{1,4})?[A-Z]?$/;
+function viewTitles(its) {
+  const out = [];
+  its.forEach(n => {
+    if (!VNUM_RE.test(n.s)) return;
+    let best = null, bd = 1e9;
+    its.forEach(s => {
+      if (s === n || !SHEET_RE.test(s.s)) return;
+      const dy = s.y - n.y, dx = Math.abs(s.x - n.x);
+      if (dy < 4 || dy > 40 || dx > 30) return;
+      const d = dy + dx; if (d < bd) { bd = d; best = s; }
+    });
+    if (best) out.push({ v: n.s, sheet: best.s, x: Math.min(n.x, best.x), y: best.y });
+  });
+  // Fallback for titles without a sheet number in the bubble: a view number beside a scale line.
+  its.filter(t => SCALE_RE.test(t.s)).forEach(s => {
+    let best = null, bd = 1e9;
+    its.forEach(n => {
+      if (n === s || !VNUM_RE.test(n.s)) return;
+      const dx = s.x - n.x, dy = Math.abs(n.y - s.y);
+      if (dx < -5 || dx > 120 || dy > 30) return;
+      const d = dx + dy * 2; if (d < bd) { bd = d; best = n; }
+    });
+    if (best && !out.some(o => Math.abs(o.x - best.x) < 40 && Math.abs(o.y - s.y) < 40)) out.push({ v: best.s, sheet: null, x: best.x, y: s.y });
+  });
+  return out;
+}
+function viewAt(titles, x, y) {
+  let best = null, bs = 1e9;
+  titles.forEach(t => { const dy = t.y - y, dx = x - t.x; if (dy < -10 || dx < -40) return; const sc = dy + 0.5 * Math.abs(dx); if (sc < bs) { bs = sc; best = t; } });
+  return best;
+}
 const normT = t => String(t || '').toUpperCase().replace(/&/g, ' AND ').replace(/[^A-Z0-9]+/g, ' ').trim();
 const fmtWhen = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
@@ -357,6 +435,62 @@ const C = {
   ink: ['var(--chip-ink-bg)', 'var(--chip-ink-fg)'], gold: ['var(--gold)', 'var(--on-gold)'],
   plum: ['var(--sel)', 'var(--plum)'], neutral: ['var(--chip-n-bg)', 'var(--chip-n-fg)']
 };
+
+// Parent dropdown styled like the keynote list: tree order, indented, bold top level, plum second level, etc.
+const LVL_COLORS = ['var(--plum)', 'var(--plum-light)', 'var(--fg)', 'var(--muted)'];
+function ParentPicker({ value, items, allowed, colorByLevel, onChange }) {
+  const [open, setOpen] = React.useState(false), [q, setQ] = React.useState('');
+  const ref = React.useRef(null), listRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    requestAnimationFrame(() => { const el = listRef.current && listRef.current.querySelector('[data-sel="1"]'); if (el) el.scrollIntoView({ block: 'center' }); });
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  const ok = new Set(allowed), kids = {}, roots = [], depth = {}, hasKids = {};
+  Object.keys(items).forEach(k => { const p = items[k].parent; if (p && items[p] && p !== k) { (kids[p] = kids[p] || []).push(k); hasKids[p] = true; } else roots.push(k); });
+  const rows = [], seen = {};
+  const walk = (k, dep) => { if (seen[k]) return; seen[k] = 1; depth[k] = dep; if (ok.has(k)) rows.push(k); (kids[k] || []).sort(natCmp).forEach(c => walk(c, dep + 1)); };
+  roots.sort(natCmp).forEach(k => walk(k, 0));
+  const ql = q.trim().toLowerCase();
+  const shown = ql ? rows.filter(k => k.toLowerCase().includes(ql) || (items[k].text || '').toLowerCase().includes(ql)) : rows;
+  const look = k => ({ color: colorByLevel ? LVL_COLORS[Math.min(depth[k] || 0, 3)] : 'var(--fg)', fontWeight: !items[k].parent ? 800 : hasKids[k] ? 600 : 400 });
+  const pick = v => { onChange(v); setOpen(false); setQ(''); };
+  const cur = value && items[value];
+  return (
+    <div ref={ref} style={{ position: 'relative' }} onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); } }}>
+      <button type="button" id="draft-parent" className="field" onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', cursor: 'pointer' }}>
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {cur ? <><span style={{ ...look(value), fontVariantNumeric: 'tabular-nums' }}>{value}</span><span style={{ ...look(value), marginLeft: 8 }}>{cur.text}</span></> : <span style={{ color: 'var(--fg-2)' }}>None (top-level category)</span>}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none' }}><path d="M2 3.5l3 3 3-3"></path></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 40, background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 12, boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', maxHeight: 340, overflow: 'hidden' }}>
+          <div style={{ padding: 8, borderBottom: '1px solid var(--line)' }}>
+            <input id="parent-search" className="field" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search parents" style={{ padding: '7px 10px', fontSize: 13 }} />
+          </div>
+          <div ref={listRef} style={{ overflow: 'auto', padding: 4 }}>
+            {!ql && <button type="button" onClick={() => pick('')} data-sel={!value ? '1' : '0'} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--fg-2)', background: !value ? 'var(--sel)' : 'transparent' }}>None (top-level category)</button>}
+            {shown.map(k => {
+              const on = k === value, st = look(k);
+              return (
+                <button type="button" key={k} data-sel={on ? '1' : '0'} onClick={() => pick(k)}
+                  onMouseEnter={e => { if (!on) e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent'; }}
+                  style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: 10, width: '100%', textAlign: 'left', border: 0, borderRadius: 8, padding: '6px 10px', paddingLeft: 10 + (ql ? 0 : (depth[k] || 0) * 16), cursor: 'pointer', fontSize: 13, background: on ? 'var(--sel)' : 'transparent' }}>
+                  <span style={{ ...st, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{k}</span>
+                  <span style={{ ...st, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{items[k].text}</span>
+                </button>
+              );
+            })}
+            {!shown.length && <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--muted)' }}>No matching keynotes</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 class App extends React.Component {
   state = { items: {}, base: {}, order: [], eol: true, fileName: '', enc: 'ansi', linked: false, query: '', view: 'all', scope: '', collapsed: {}, sel: null, draft: null, conflicts: null, confirmDel: null, toast: null, remoteChanged: false, lastSync: null, prefs: { ...DEFAULT_PREFS, ...(lsGet(LSP) || {}) }, showPrefs: false, exportText: null };
@@ -562,14 +696,19 @@ class App extends React.Component {
       for (let i = 1; i <= doc.numPages; i++) {
         this.setState({ drawBusy: 'Reading ' + path + ' · page ' + i + ' of ' + doc.numPages });
         try {
-          const pg = await doc.getPage(i), tc = await pg.getTextContent();
+          const pg = await doc.getPage(i), tc = await pg.getTextContent(), vp = pg.getViewport({ scale: 1 });
           const txt = tc.items.map(t => t.str).join(' ');
+          const its = tc.items.filter(t => t.str && t.str.trim() && t.transform).map(t => { const [x, y] = vp.convertToViewportPoint(t.transform[4], t.transform[5]); return { s: t.str.trim(), x, y }; });
+          const titles = viewTitles(its);
           const pl = labels && labels[i - 1] && labels[i - 1].trim();
           const label = doc.numPages === 1 ? (pl || base) : pl ? (fl.length > 1 ? base + ' · ' + pl : pl) : (fl.length > 1 ? base + ' p.' + i : 'p.' + i);
-          const found = new Set(), nf = new Set(); let m;
-          KN_RE.lastIndex = 0; while ((m = KN_RE.exec(txt))) found.add(m[1] + ' ' + m[2] + m[3] + '.' + m[4].toUpperCase());
+          const found = new Map(), nf = new Set(); let m;
+          // Each reference reads like a callout: "7/A3.510" (view/sheet). Without a sheet in the bubble, fall back to the page label.
+          const addTag = (mm, t) => { const key = mm[1] + ' ' + mm[2] + mm[3] + '.' + mm[4].toUpperCase(); if (!found.has(key)) found.set(key, new Set()); if (t) found.get(key).add(t.v + '/' + (t.sheet || label)); };
+          its.forEach(t => { KN_RE.lastIndex = 0; let mm; while ((mm = KN_RE.exec(t.s))) addTag(mm, viewAt(titles, t.x, t.y)); });
+          KN_RE.lastIndex = 0; while ((m = KN_RE.exec(txt))) addTag(m, null);
           const r2 = /(?<![\d.])(\d{3})(?![\d.])/g; while ((m = r2.exec(txt))) if (items[m[1]] && items[m[1]].parent) nf.add(m[1]);
-          found.forEach(k => (hits[k] = hits[k] || []).push(label));
+          found.forEach((vs, k) => { hits[k] = hits[k] || []; if (vs.size) [...vs].sort(natCmp).forEach(r => hits[k].push(r)); else hits[k].push(label); });
           nf.forEach(k => (numHits[k] = numHits[k] || []).push(label));
           pg.cleanup && pg.cleanup();
         } catch (err) {}
@@ -883,20 +1022,21 @@ class App extends React.Component {
         </div>
         {dr && W >= 760 && (
           <div className="thead gut" style={{ gridTemplateColumns: cols }}>
-            {this.renderSortHeads([['key', 'Key'], ['kn', 'Keynote'], ['spec', 'Spec'], ['sheets', 'Sheets'], ['status', 'Status']], D.sk, D.sd, id => this.setState(st => ({ drawSort: id, drawDir: (st.drawSort || 'key') === id && st.drawDir !== 'desc' ? 'desc' : 'asc' })))}
+            {this.renderSortHeads([['key', 'Key'], ['kn', 'Keynote'], ['spec', 'Spec'], ['sheets', 'View / sheet'], ['status', 'Status']], D.sk, D.sd, id => this.setState(st => ({ drawSort: id, drawDir: (st.drawSort || 'key') === id && st.drawDir !== 'desc' ? 'desc' : 'asc' })))}
           </div>
         )}
         <div className="scroll">
           {dr ? (D.list.length ? D.list.map(r => {
             const k = r.k, chips = [];
-            if (r.noSpec) chips.push(['Not in Spec', ...C.ink]);
+            if (r.noSpec) chips.push(['Not in Spec', 'var(--st-red-chip)', 'var(--st-red-fg)']);
             if (r.unused) chips.push(['Not on drawings', ...C.gold]);
-            if (r.ok) chips.push(['Matched', ...C.neutral]);
-            if (r.noKn) chips.push(['Not in keynote file', ...C.plum]);
+            if (r.ok) chips.push(['Matched', ...C.plum]);
+            if (r.noKn) chips.push(['Not in keynote file', 'var(--st-gold-chip)', 'var(--st-gold-fg)']);
             const specOk = r.sec && D.sp && D.specMap[r.sec];
+            const stCls = r.noSpec ? ' st-nospec' : r.noKn ? ' st-nokn' : r.ok ? ' st-ok' : '';
             return (
-              <div key={k} className="cmprow gut" style={{ gridTemplateColumns: cols, cursor: r.fileKey ? 'pointer' : 'default' }} onClick={() => { if (r.fileKey && items[r.fileKey]) this.select(r.fileKey); }}>
-                <div style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 0, overflowWrap: 'anywhere' }}>{k}</div>
+              <div key={k} className={'cmprow gut' + stCls} style={{ gridTemplateColumns: cols, cursor: r.fileKey ? 'pointer' : 'default' }} onClick={() => { if (r.fileKey && items[r.fileKey]) this.select(r.fileKey); }}>
+                <div className="stkey" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 0, overflowWrap: 'anywhere' }}>{k}</div>
                 <div style={{ fontWeight: r.it ? 400 : 500, color: r.it ? 'var(--fg)' : 'var(--muted)', minWidth: 0, overflowWrap: 'anywhere' }}>{r.unused ? 'No keynotes from this section on the drawings' : r.it ? r.it.text || '(no text)' : 'Not in keynote file'}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                   <span style={{ fontWeight: 500, color: specOk ? 'var(--fg)' : 'var(--muted)', overflowWrap: 'anywhere' }}>{!r.sec ? 'General note' : !D.sp ? 'Spec folder not chosen' : D.specMap[r.sec] || 'No spec file found'}</span>
@@ -962,8 +1102,9 @@ class App extends React.Component {
     const conf = s.conflicts || [], t = s.toast, cd = s.confirmDel;
     const sync = s.lastSync && linked ? ' · synced ' + new Date(s.lastSync).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
     const W = s.w || 1400, wide = W >= 1200, narrow = W < 760, onSpec = page !== 'keynotes';
-    const layoutCols = onSpec ? 'minmax(0,1fr)' : wide ? 'minmax(170px,230px) minmax(0,1fr) minmax(300px,380px)' : narrow ? 'minmax(0,1fr)' : 'minmax(160px,200px) minmax(0,1fr)';
-    const asideStatic = wide && !onSpec;
+    const specSide = onSpec && !!d && !narrow;
+    const layoutCols = onSpec ? (specSide ? 'minmax(0,1fr) minmax(300px,380px)' : 'minmax(0,1fr)') : wide ? 'minmax(170px,230px) minmax(0,1fr) minmax(300px,380px)' : narrow ? 'minmax(0,1fr)' : 'minmax(160px,200px) minmax(0,1fr)';
+    const asideStatic = (wide && !onSpec) || specSide;
     const showAside = asideStatic || !!d;
     const rowCols = narrow ? 'minmax(90px,130px) minmax(0,1fr)' : 'minmax(110px,180px) minmax(0,1fr) 72px';
     const rowPad = P.density === 'compact' ? '6px' : '11px';
@@ -1090,7 +1231,7 @@ class App extends React.Component {
               </div>
             </main>
           )}
-          {page === 'drawings' && this.renderDrawPage(D, W)}
+          {page === 'drawings' && this.renderDrawPage(D, specSide ? W - 380 : W)}
 
           {showAside && (
             <aside className="aside" style={{ display: 'flex', position: asideStatic ? 'static' : 'absolute', width: asideStatic ? 'auto' : 380, boxShadow: asideStatic ? 'none' : 'var(--shadow-lg)' }}>
@@ -1117,13 +1258,10 @@ class App extends React.Component {
                       <textarea id="draft-text" className="field" rows="4" value={d.text} onChange={e => { const v = e.target.value; this.setState(x => ({ draft: { ...x.draft, text: v } })); }}></textarea>
                       <span style={{ fontSize: 12, color: 'var(--muted)' }}>{P.forceUppercase ? 'Tabs and line breaks are removed. Saved in uppercase.' : 'Tabs and line breaks are removed on save.'}</span>
                     </label>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <span className="flabel">Parent</span>
-                      <select id="draft-parent" className="field" value={d.parent} onChange={e => { const v = e.target.value; this.setState(x => ({ draft: { ...x.draft, parent: v } })); }}>
-                        <option value="">None (top-level category)</option>
-                        {parentOpts.map(k => <option key={k} value={k}>{k + '   ' + (items[k].text.length > 44 ? items[k].text.slice(0, 44) + '…' : items[k].text)}</option>)}
-                      </select>
-                    </label>
+                      <ParentPicker value={d.parent} items={items} allowed={parentOpts} colorByLevel={P.colorByLevel !== false} onChange={v => this.setState(x => ({ draft: { ...x.draft, parent: v } }))} />
+                    </div>
                     {P.showRawLine !== false && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span className="flabel">Line written to file</span>
