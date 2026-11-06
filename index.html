@@ -720,6 +720,72 @@ class App extends React.Component {
     lsSet(LSD, draw);
     this.toast('Found ' + Object.keys(hits).length + ' keynotes on ' + pages + ' page' + (pages === 1 ? '' : 's') + (bad ? ' · ' + bad + ' PDF' + (bad === 1 ? '' : 's') + ' could not be read' : ''));
   }
+  loadExcelJs() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    return this._xl || (this._xl = new Promise((res, rej) => {
+      const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      sc.onload = () => res(window.ExcelJS); sc.onerror = () => { this._xl = null; rej(new Error('load')); };
+      document.head.appendChild(sc);
+    }));
+  }
+  // Export every Spec Check sub-tab to one .xlsx (one worksheet per tab) with the same font, colors and status tints as the list.
+  exportSpecXlsx = async D => {
+    const s = this.state;
+    const TABS = [['Not in Spec', r => r.noSpec], ['Not in keynote file', r => r.noKn], ['Matched', r => r.ok], ['All', () => true]];
+    this.setState({ xlsxBusy: true });
+    try {
+      let XL; try { XL = await this.loadExcelJs(); } catch (e) { this.setState({ xlsxBusy: false }); return this.toast('Could not load the Excel writer. Check the internet connection.', 'error'); }
+      const FONT = 'Manrope', PLUM = 'FF4E2751', WHITE = 'FFFFFFFF', LINE = 'FFEAEAEA';
+      const ST = { nospec: { bg: 'FFFEF4F4', fg: 'FFA3242B', chip: 'FFFDE7E8' }, nokn: { bg: 'FFFEFAF0', fg: 'FF7A5A12', chip: 'FFFDF1D6' }, ok: { bg: WHITE, fg: PLUM, chip: 'FFEFE9F1' } };
+      const TABCOLOR = { 'Not in Spec': 'FFA3242B', 'Not in keynote file': 'FFF7CF7A', 'Matched': PLUM, 'All': 'FF6B6A69' };
+      const wb = new XL.Workbook(); wb.creator = 'LJC Keynote Manager'; wb.created = new Date();
+      for (const [tabName, test] of TABS) {
+      const rows = D.all.filter(test);
+      const ws = wb.addWorksheet(tabName.slice(0, 31), { properties: { tabColor: { argb: TABCOLOR[tabName] } }, views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] });
+      ws.columns = [{ width: 16 }, { width: 46 }, { width: 12 }, { width: 34 }, { width: 22 }, { width: 26 }];
+      const t = ws.getCell('A1'); t.value = 'Spec Check · ' + tabName + ' · ' + rows.length + ' row' + (rows.length === 1 ? '' : 's'); t.font = { name: FONT, size: 16, bold: true, color: { argb: PLUM } };
+      ws.getCell('A2').value = [s.fileName || 'No keynote file', D.dr ? 'Drawings: ' + D.dr.folder : '', D.sp ? 'Specs: ' + D.sp.folder : 'Specs: not chosen', 'Exported ' + new Date().toLocaleString()].filter(Boolean).join('   ·   ');
+      ws.getCell('A2').font = { name: FONT, size: 10, color: { argb: 'FF6B6A69' } };
+      const hdr = ws.getRow(4); hdr.values = ['Key', 'Keynote', 'Section', 'Spec', 'View / sheet', 'Status']; hdr.height = 22;
+      hdr.eachCell(c => { c.font = { name: FONT, size: 10, bold: true, color: { argb: WHITE } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PLUM } }; c.alignment = { vertical: 'middle' }; });
+      rows.forEach(r => {
+        const stat = [r.noSpec && 'Not in Spec', r.unused && 'Not on drawings', r.ok && 'Matched', r.noKn && 'Not in keynote file'].filter(Boolean);
+        const st = r.noSpec ? ST.nospec : r.noKn ? ST.nokn : r.ok ? ST.ok : null;
+        const kn = r.unused ? 'No keynotes from this section on the drawings' : r.it ? r.it.text || '(no text)' : 'Not in keynote file';
+        const spec = !r.sec ? 'General note' : !D.sp ? 'Spec folder not chosen' : D.specMap[r.sec] || 'No spec file found';
+        const row = ws.addRow([r.k, kn, r.sec || '', spec, r.sheets.join('\n'), stat.join('\n')]);
+        const lines = Math.max(1, r.sheets.length, stat.length, Math.ceil(kn.length / 48));
+        row.height = Math.max(20, lines * 15);
+        row.eachCell({ includeEmpty: true }, (c, i) => {
+          c.font = { name: FONT, size: 10, color: { argb: 'FF212121' } };
+          c.alignment = { vertical: 'top', wrapText: true };
+          c.border = { bottom: { style: 'thin', color: { argb: LINE } } };
+          if (st && st.bg !== WHITE) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: st.bg } };
+        });
+        row.getCell(1).font = { name: FONT, size: 10, bold: true, color: { argb: st ? st.fg : 'FF212121' } };
+        if (!r.it) row.getCell(2).font = { name: FONT, size: 10, color: { argb: 'FF6B6A69' } };
+        if (spec !== D.specMap[r.sec]) row.getCell(4).font = { name: FONT, size: 10, color: { argb: 'FF6B6A69' } };
+        row.getCell(5).font = { name: FONT, size: 10, color: { argb: 'FF424242' } };
+        row.getCell(6).font = { name: FONT, size: 10, bold: true, color: { argb: st ? st.fg : 'FF212121' } };
+      });
+      ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: 6 } };
+      if (!rows.length) { const e = ws.getCell('A5'); e.value = 'Nothing in this tab.'; e.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF6B6A69' } }; }
+      ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '4:4' };
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const d = new Date(), stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const name = 'Spec Check - ' + stamp + '.xlsx';
+      const dl = this.downloads;
+      if (dl && dl.save) {
+        try { await dl.save({ filename: name, data: blob }); this.setState({ xlsxBusy: false }); return this.toast('Saved ' + name + ' · 4 tabs, ' + D.all.length + ' keynotes'); }
+        catch (e) { const code = e && (e.code || e.name); if (['declined', 'cancelled', 'canceled', 'AbortError', 'user_declined'].includes(code)) { this.setState({ xlsxBusy: false }); return this.toast('Export cancelled', 'warn'); } }
+      }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      this.setState({ xlsxBusy: false }); this.toast('Exported ' + name + ' · 4 tabs, ' + D.all.length + ' keynotes');
+    } catch (e) { this.setState({ xlsxBusy: false }); this.toast('Export failed: ' + e.message, 'error'); }
+  };
   createFromDrawing(key) {
     const items = this.state.items, sec = key.slice(0, 7), div = key.slice(0, 2) + ' 0000';
     const parent = items[sec] ? sec : items[div] ? div : '';
@@ -903,7 +969,7 @@ class App extends React.Component {
     all.sort((a, b) => { const va = sval[sk](a), vb = sval[sk](b); const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), undefined, { numeric: true, sensitivity: 'base' }); return (c || natCmp(a.k, b.k)) * sd; });
     const list = all.filter(r => (f === 'all' || (f === 'nospec' && r.noSpec) || (f === 'unused' && r.unused) || (f === 'nokn' && r.noKn) || (f === 'ok' && r.ok)) &&
       (!q || r.k.toLowerCase().includes(q) || (r.it && r.it.text.toLowerCase().includes(q)) || (r.sec && specMap[r.sec] && specMap[r.sec].toLowerCase().includes(q)) || r.sheets.some(x => x.toLowerCase().includes(q))));
-    return { dr, sp, f, cnt, sk, sd, list, specMap };
+    return { dr, sp, f, cnt, sk, sd, list, all, specMap };
   }
 
   // ---------- render ----------
@@ -1013,10 +1079,16 @@ class App extends React.Component {
           <div className="tabs">
             {dr ? [tab('nospec', 'Not in Spec'), tab('nokn', 'Not in keynote file'), tab('ok', 'Matched'), tab('all', 'All')] : null}
             {hasNumHits && (
-              <label className="toggle" style={{ marginLeft: 'auto', paddingBottom: 10, fontSize: 13, alignItems: 'center' }}>
+              <label className="toggle" style={{ marginLeft: 'auto', fontSize: 13, alignItems: 'center' }}>
                 <input id="draw-nums" type="checkbox" checked={!!s.drawNums} onChange={() => this.setState(st => ({ drawNums: !st.drawNums }))} style={{ marginTop: 0 }} />
                 Include numbered notes
               </label>
+            )}
+            {!!dr && (
+              <button className="mini" style={{ marginLeft: hasNumHits ? 12 : 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: D.all.length && !s.xlsxBusy ? 1 : 0.5 }} disabled={!D.all.length || !!s.xlsxBusy} onClick={() => this.exportSpecXlsx(D)}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13h10"></path></svg>
+                {s.xlsxBusy ? 'Exporting…' : 'Export to Excel'}
+              </button>
             )}
           </div>
         </div>
